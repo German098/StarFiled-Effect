@@ -1,0 +1,361 @@
+.module Man_entity_S
+
+.include "cpctelera.h.s"
+.include "../man/man_entity.h.s"
+.include "cpctelera_functions.h.s"
+
+;; Default entity
+manentity_default:
+	.db #manentity_cmp_star_mask		;; cmps
+	.db 79, 0 							;; [x, y]
+	.dw 0x0000 							;; last video ptr
+	.db 0 								;; vx
+	.db 0xff							;; color
+;; Height and width constants
+manentity_default_height::
+	.db 1
+manentity_default_width::
+	.db 1
+
+;; Entities array
+manentity_array::
+	.ds manentity_num_bytes
+;; Ptr next entity to insert in manentity_array
+manentity_array_next:
+	.dw #manentity_array
+;manentity_array_counter:
+;	.db 0
+
+;;
+;; PUBLIC FUNCTIONS
+;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Init entity manager
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: -
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_init::
+	;; Not neccesary!!!
+	ld hl, #manentity_array
+	ld (hl), #0
+	ld d, h
+	ld e, l
+	inc de
+	ld bc, #manentity_num_bytes - 1
+
+	ldir
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Create new entity in manentity_array with Y and Vx pseudo-random values, [1, 199] and [-1, -3] respectively. 
+;; INPUTS: -
+;; OUTPUTS: IX (ptr to created entity)
+;; CHANGED: HL, DE, BC, AF, IX
+;; WARNING: 
+;;	- There must be free space in the array to insert a new entity.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_create::
+	call manentity_new
+	ld__ix_de
+
+	ld hl, #manentity_default
+	ld bc, #manentity_size
+
+	;; HL = ptr to  default entity, IX = DE = ptr to next free space in the array of entities, BC = number of bytes to transfer from HL to DE
+	ldir
+
+	;; Increment current num of entities in the array
+	;ld a, (manentity_array_counter)
+	;inc a
+	;ld (manentity_array_counter), a
+
+	;; Improve this part of the code!!!
+	;; Fill entity with pseudo-random data
+	call cpct_getRandom_xsp40_u8_asm
+	;; A = L = pseudo-radom byte > 0
+	;; Get Y value in range (Y => 0000 0001, 1100 0111)
+	and #0b10000000
+	;; A & 1000 0000 = x000 0000: if A == 0: A = [1, 127] so save value, else: check 6th bit of A
+ 	jr nz, manentity_create_test_6_bit_num_random 
+	ld manentity_y(ix), l
+	;; Get Vx value
+	jp manentity_create_random_vx 			
+	
+	manentity_create_test_6_bit_num_random:
+ 	 bit 6, l
+ 	 ;; If 6th bit of L == 0: L = 10xx xxxx = [128, 191] so save value, else: check 5, 4 and 3 bits of A
+ 	jr nz, manentity_create_345_bits_num_random
+	 ld manentity_y(ix), l
+
+	jp manentity_create_random_vx
+
+	manentity_create_345_bits_num_random:
+	 ld a, l
+	 and #0b00111000
+	 ;; If (A 3th | A 4th | A 5th) == 0: A = [192, 199] so save value, else: set 7th to 0 (A < 128)
+	jr nz, manentity_create_downgrade_random_value
+	jp manentity_create_set_Y_random_value
+
+	manentity_create_downgrade_random_value:
+	 res 7, l
+
+	manentity_create_set_Y_random_value:
+	ld manentity_y(ix), l 
+
+	manentity_create_set_random_vx:
+	 ;; Get Vx value in range (Vx => 0000 0001, 0000 0011)
+	 ld a, l
+	 cp #0
+	 and #0b00000011
+	jr z, manentity_create_random_vx
+	 neg
+	 ;; Vx = [-1, -3]
+	 ld manentity_vx(ix), a
+
+	ret
+
+	manentity_create_random_vx:
+	call cpct_getRandom_xsp40_u8_asm
+	jp manentity_create_set_random_vx
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Create A entities in manentity_array.
+;; INPUTS: A (number of entities to create)
+;; OUTPUTS: -
+;; CHANGED: AF, HL, DE, BC, IX, IY(L)
+;; WARNING:
+;;	- A >= 0
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_add_A_entities::
+	dec a
+	ret m
+	ld__iyl_a 							;; IY(L) = A (save num entities to delete)
+
+	call manentity_create
+	ld__a_iyl 							;; A = IY(L)
+
+	jr manentity_add_A_entities
+
+	;ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Set entity for destruction
+;; INPUTS: IX (entity to destroy)
+;; OUTPUTS: -
+;; CHANGED: AF
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_set_for_destruction::
+	ld a, #(manentity_cmp_alive_mask | manentity_destroy_mask)
+	xor manentity_cmps(ix)
+	ld manentity_cmps(ix), a
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Set entity to no rederizable.
+;; INPUTS: IX (entity)
+;; OUTPUTS: -
+;; CHANGED: AF
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_set_to_no_renderizable::
+	ld a, #manentity_cmp_render_mask
+	xor manentity_cmps(ix)
+	ld manentity_cmps(ix), a
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Update entities of array per frame (delete manentity_max_entities_to_destroy entities).
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: IX, AF, BC, ?
+;; WARNINGS: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_update::
+	call manentity_set_destroy_func_values 			;; Set value of num entities to delete in manentity_destroy function
+	ld a, #manentity_destroy_mask
+	ld hl, #manentity_destroy
+	jp manentity_forall_matching
+
+	;ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Loop over entity array, if e_cmps(IX) == A: call HL function, else: next entity.
+;; INPUTS: HL (function to call), A (component entity mask)
+;; OUTPUTS: -
+;; CHANGED: IX, AF, BC, D, ?
+;; WARNINGS: 
+;;	- There must be at least one entity to destroy in the array.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_forall_matching_next_entity_incr:
+	.dw #manentity_size
+manentity_forall_matching::
+	ld ix, #manentity_array
+	ld (_manentity_cmp_mask), a
+
+	;ld a, (manentity_array_counter)
+	;cp #0
+	;ret z
+
+	ld a, #manentity_num_entities
+	ld (_manentity_counter), a
+	manentity_forall_matching_loop:
+	 _manentity_cmp_mask=.+1
+	 ld d, #0x00
+	 ld a, d
+	 and manentity_cmps(ix)
+	 cp d
+	jr nz, manentity_forall_matching_next_entity
+
+	 push ix
+	 push hl
+	 ld (_manentity_function_to_call), hl
+	 _manentity_function_to_call =.+1
+	call #0x0000
+	 pop hl
+	 pop ix
+
+	manentity_forall_matching_next_entity:
+	 _manentity_counter=.+1
+	 ld a, #0x00
+	 dec a
+	 cp #0
+	ret z 
+	 ld (_manentity_counter), a
+
+	 ld bc, (manentity_forall_matching_next_entity_incr)
+	 add ix, bc
+	 ld a, #manentity_size
+	 ld (manentity_forall_matching_next_entity_incr), a
+	jr manentity_forall_matching_loop
+
+	ret
+
+
+;;
+;; PRIVATE FUNCTIONS
+;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Define space in manentity_array for a new entity
+;; INPUTS: -
+;; OUTPUTS: DE (ptr to new entity generated)
+;; CHANGED: HL, DE, BC
+;; WARNINGS: 
+;;	- There must be free space in the array to insert a new entity.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_new:
+	ld hl, (manentity_array_next)
+	ld d, h
+	ld e, l
+	ld bc, #manentity_size
+	add hl, bc
+	ld (manentity_array_next), hl
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Set initial values to manentity_destroy function.
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: A
+;; WARNINGS: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_set_destroy_func_values:
+	ld a, #manentity_max_entities_to_destroy
+	ld (_manentity_num_ents_to_destroy), a
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Destroy entity of manentity_array. Copy data of last entity inserted in ptr of the entity to delete (only if it is not the last one) and decrement 
+;; manentity_array_next in manentity_size bytes.
+;; INPUTS: IX (ptr entity to destroy in the array)
+;; OUTPUTS: -
+;; CHANGED: HL, DE, BC, AF
+;; WARNINGS: 
+;;	- There must be at least one entity to destroy in the array.
+;;	- Ptr of entity to destroy must be a valid one.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_destroy:
+	_manentity_num_ents_to_destroy =.+1
+	ld a, #0x00
+	cp #0
+	jr nz, manentity_destroy_continue
+
+	;; Number of entities to delete reached, so, set _manentity_counter of manentity_forall_matching to 1, therefor, in the current iteration of it, 
+	;; the loop will end.
+	inc a
+	ld (_manentity_counter), a
+
+	ret
+
+	manentity_destroy_continue:
+	 ;; Substract manentity_size from the value of manentity_array_next ptr 
+	 ld a, (manentity_array_next) 				 
+	 sub #manentity_size 						
+	 ld (manentity_array_next), a 				
+	 ld l, a
+	 ld a, (manentity_array_next + 1)
+	 sbc #0
+	 ld h, a
+	 ld (manentity_array_next + 1), a
+
+	 ;; WARNING: For now, manentity_size is 5 bytes, so take ldir in any case If manentity_size grows, improve code.
+	 ;; HL = new manentity_array_next ptr value
+	 ;ld a, #<manentity_array
+	 ;cp l
+	 ;jr nz, manentity_destroy_transfer_data
+	 ;ld a, #>manentity_array
+	 ;cp h
+	 ;ret z
+
+	;manentity_destroy_transfer_data:
+	 ld__de_ix
+	 ld bc, #manentity_size
+
+	 ldir
+
+	 ;; Decrement number of entities created in the array
+	 ;ld a, (manentity_array_counter)
+	 ;dec a
+	 ;ld (manentity_array_counter), a
+
+	 ;; Set manentity_forall_matching_next_entity_incr value to 0
+	 xor a
+	 ld (manentity_forall_matching_next_entity_incr), a
+ 		
+ 	 ;; Decrement number of max entities to delete in current frame
+	 ld a, (_manentity_num_ents_to_destroy)
+	 dec a
+	 ld (_manentity_num_ents_to_destroy), a
+
+	jp manentity_create 
+
+	;ret
