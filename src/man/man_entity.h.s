@@ -3,7 +3,7 @@
 ;;
 ;; CONSTANTS
 ;;
-manentity_num_entities 		    = 20
+manentity_num_entities 		    = 1
 manentity_num_bytes 		    = manentity_num_entities * manentity_size
 manentity_max_entities_to_destroy = 4
 
@@ -24,17 +24,22 @@ manentity_cmp_star_mask    = (manentity_cmp_alive_mask | manentity_cmp_render_ma
 manentity_cmps = 0
 manentity_x = 1
 manentity_y = 2
-manentity_last_videol_ptr = 3
-manentity_last_videoh_ptr = 4
+manentity_w = 3
+manentity_h = 4
 manentity_vx = 5
-manentity_color = 6
-manentity_size = manentity_color + 1 
+manentity_last_videol_ptr = 6
+manentity_last_videoh_ptr = 7
+manentity_lanim_ptr = 8
+manentity_hanim_ptr = 9
+manentity_lprevsprite_ptr = 10
+manentity_hprevsprite_ptr = 11
+manentity_lsprite_ptr = 12
+manentity_hsprite_ptr = 13
+manentity_size = manentity_hsprite_ptr + 1 
 
 ;;
 ;; GLOBAL TAGS
 ;;
-.globl manentity_default_height
-.globl manentity_default_width
 .globl manentity_forall_matching_next_entity_incr
 
 ;;

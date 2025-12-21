@@ -67,19 +67,21 @@ rendersys_draw_entity:
 
 	rendersys_draw_entity_continue:
 	 ;; Erase
-	 ld h, manentity_last_videoh_ptr(ix)
-	 ld l, manentity_last_videol_ptr(ix)
-	 ld a, (hl)
-	 xor manentity_color(ix)
-	 ld (hl), a
+	 ;; Only a byte
+	 ;ld h, manentity_last_videoh_ptr(ix)
+	 ;ld l, manentity_last_videol_ptr(ix)
+	 ;ld a, (hl)
+	 ;xor manentity_color(ix)
+	 ;ld (hl), a
 
-	; ld d, manentity_last_videoh_ptr(ix)
-	; ld e, manentity_last_videol_ptr(ix)
-	; ld a, (manentity_default_width)
-	; ld b, a
-	; ld a, (manentity_default_height)
-	; ld c, a
-	;call rendersys_draw_XOR_entity
+	 ;; A sprite
+	 ld h, manentity_hsprite_ptr(ix)
+	 ld l, manentity_lsprite_ptr(ix)
+	 ld d, manentity_last_videoh_ptr(ix)
+	 ld e, manentity_last_videol_ptr(ix)
+	 ld b, manentity_w(ix)
+	 ld c, manentity_h(ix)
+	call rendersys_draw_XOR_entity
 
 	 ld a, #manentity_cmp_alive_mask
 	 and manentity_cmps(ix)
@@ -91,12 +93,14 @@ rendersys_draw_entity:
 	 ld l, manentity_last_videol_ptr(ix) 
 	 ld a, manentity_vx(ix)
 
-	 add l
-	 ld l, a
-	 ld a, h
-	 ccf
-	 sbc #0
-	 ld h, a
+	 ;; Substract current vx to current star position (to draw it in new position of screen)
+	 ;; WARNING: uncomment it
+	 ;add l
+	 ;ld l, a
+	 ;ld a, h
+	 ;ccf
+	 ;sbc #0
+	 ;ld h, a
 
 	jp rendersys_draw_entity_draw_new_position
 
@@ -111,16 +115,19 @@ rendersys_draw_entity:
 	 ld manentity_last_videol_ptr(ix), l
 
 	 ;; Draw
-	 ld a, (hl)
-	 xor manentity_color(ix)
-	 ld (hl), a
-	; ld d, h
-	; ld e, l
-	; ld a, (manentity_default_width)
-	; ld b, a
-	; ld a, (manentity_default_height)
-	; ld c, a
-	;call rendersys_draw_XOR_entity 
+	 ;; Only a byte
+	 ;ld a, (hl)
+	 ;xor manentity_color(ix)
+	 ;ld (hl), a
+
+	 ;; A sprite
+	 ld d, h
+	 ld e, l
+	 ld h, manentity_hsprite_ptr(ix)
+	 ld l, manentity_lsprite_ptr(ix)
+	 ld b, manentity_w(ix)
+	 ld c, manentity_h(ix)
+	call rendersys_draw_XOR_entity 
 
 
 	ret
@@ -128,32 +135,32 @@ rendersys_draw_entity:
 ;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Draw or erase entity with XOR method
-;; INPUTS: DE (destination addres video memory to draw), B (entity width), C (entity height)
+;; INPUTS: DE (destination addres video memory to draw), HL (sprite content address memory), B (entity width), C (entity height)
 ;; OUTPUTS: -
-;; CHANGED: H, BC, DE, AF
+;; CHANGED: HL, BC, DE, AF
 ;; WARNING: -
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
 rendersys_draw_XOR_entity:
-	;push ix 									;; [2 | 5] Save IX register
-	ld l, b										;; [2 | 2] H = B (width)
+	push ix 									;; [2 | 5] Save IX register
+	ld__ixl_b									;; [2 | 2] IXL = B (width)
 
 	rendersys_XOR_entity_main_loop:
 	 push de									;; [1 | 4] Save DE (address memory to draw)
 
 	rendersys_XOR_entity_row_loop:
 	 ld a, (de) 								;; [1 | 2] If is "erase mode", content of DE address memory = 0x00, else, the previous color of entity
-	 xor manentity_color(ix)					;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == sprite color, so res = back color
+	 xor (hl)									;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == sprite color, so res = back color
+	 inc hl										;; [1 | 2] Next sprite byte color
 	 ld (de), a 								;; [1 | 2] Update byte color of DE addres memory
 	 inc de 									;; [1 | 2] Next byte of video memory address to draw
 
  	djnz rendersys_XOR_entity_row_loop			;; [3/4 | 2] If B != 0, blending operation on the next byte 
- 	 pop de										;; [1 | 3] DE = estination addres video memory to draw
+ 	 pop de										;; [1 | 3] DE = destination address video memory to draw
  	 dec c 										;; [1 | 1] 
- 	;jr z, rendersys_draw_XOR_entity_end		;; [2 | 3/2]
- 	ret z
+ 	jr z, rendersys_draw_XOR_entity_end			;; [2 | 3/2]
 
- 	 ld b, l									;; [2 | 2] B = entity width
+ 	 ld__b_ixl									;; [2 | 2] B = entity width
  	 ld a, #0x08								;; [2 | 2] We add 0x0800 to destination pointer to get next byte line of current character
  	 add d 										;; [1 | 1] A = A + D (high byte of destination addres video memory to draw). Low byte is not necessary
 
@@ -172,8 +179,8 @@ rendersys_draw_XOR_entity:
  	 ld d, a 									;; [1 | 1]
  	jp rendersys_XOR_entity_main_loop			;; [3 | 3]
 
- 	;rendersys_draw_XOR_entity_end:
- 	 ;pop ix 									;; [2 | 5] IX = current entity
+ 	rendersys_draw_XOR_entity_end:
+ 	 pop ix 									;; [2 | 5] IX = current entity
 
-	;ret											;; [1 | 3]
+	ret											;; [1 | 3]
 

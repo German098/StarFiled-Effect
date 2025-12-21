@@ -46,14 +46,16 @@
 # Fondo 	Primer plano
 # 0000 		0xxx
 # 1000 		1xxx
-#
-PALETTE=0 26 26 26 26 26 26 26 0 26 26 26 26 26 26 26
+# 
+PALETTE=0 26 13 26 26 26 26 26 0 26 13 26 26 26 26 26
 
 $(eval $(call IMG2SP, SET_MODE, 0))
 $(eval $(call IMG2SP, SET_FOLDER, src/assets/sprites))
 $(eval $(call IMG2SP, SET_OUTPUT, c))
 $(eval $(call IMG2SP, SET_PALETTE_FW, $(PALETTE)))
 $(eval $(call IMG2SP, CONVERT_PALETTE, $(PALETTE), palette))
+$(eval $(call IMG2SP, SET_IMG_FORMAT, sprites))
+$(eval $(call IMG2SP, CONVERT, img/Star.png, 4, 6, sp_star))
 
 ##
 ## OLD MACROS (For compatibility)

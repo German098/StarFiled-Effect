@@ -22,6 +22,7 @@
 .include "sys/sys_render.h.s"
 .include "sys/sys_physics.h.s"
 .include "sys/sys_collision.h.s"
+.include "sys/sys_anim.h.s"
 .include "cpctelera_functions.h.s"
 
 ;;
@@ -47,15 +48,17 @@ _main::
    ;; Render loop
 loop:
    cpctm_setBorder_asm HW_GREEN
-   call syscollision_update
+   ;call syscollision_update
 
    cpctm_setBorder_asm HW_YELLOW
    call sysrender_update
 
-   cpctm_setBorder_asm HW_ORANGE
-   call sysphysics_update
-   cpctm_setBorder_asm HW_BLUE
-   call manentity_update
+   cpctm_setBorder_asm HW_PINK
+   call animsys_update
+   ;cpctm_setBorder_asm HW_ORANGE
+   ;call sysphysics_update
+   ;cpctm_setBorder_asm HW_BLUE
+   ;call manentity_update
    cpctm_setBorder_asm HW_WHITE
 
    call cpct_waitVSYNC_asm
