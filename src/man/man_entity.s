@@ -11,7 +11,7 @@ manentity_default:
 	.db #manentity_cmp_star_mask		;; cmps
 	.db 5, 0 							;; [x, y]
 	.db 2, 6 							;; [w, h] (bytes)
-	.db 0 								;; vx
+	.db -1 								;; vx
 	.dw 0x0000 							;; last video ptr
 	.dw _star_animation					;; anim ptr
 	.dw _sp_star_0						;; prev star sprite used

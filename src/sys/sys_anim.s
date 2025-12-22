@@ -30,7 +30,8 @@ animsys_change_sprite:
 	ld l, manentity_lanim_ptr(ix) 			;; \
 	xor a
 	ld b, manentity_vx(ix) 					;; B = vx (num of jumps of 2 bytes to reach next anim ptr)
-	sub #0
+	sub b
+	ld b, a
 
 	animsys_change_sprite_update:
 	 ld a, #2
@@ -45,6 +46,7 @@ animsys_change_sprite:
 	 or (hl)
 	jr z, animsys_change_sprite_reset_animation
 	 dec hl
+	animsys_change_sprite_update_dec_counter_B:
 	djnz animsys_change_sprite_update
 
 	 ;; Update sprite with new animation and anim ptr
@@ -66,7 +68,7 @@ animsys_change_sprite:
 	 ld h, (hl) 						;; |
 	 ld l, a 							;; \
 
-	jp animsys_change_sprite_update
+	jp animsys_change_sprite_update_dec_counter_B
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;

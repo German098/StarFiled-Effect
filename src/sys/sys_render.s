@@ -67,6 +67,7 @@ rendersys_draw_entity:
 
 	rendersys_draw_entity_continue:
 	 ;; Erase
+
 	 ;; Only a byte
 	 ;ld h, manentity_last_videoh_ptr(ix)
 	 ;ld l, manentity_last_videol_ptr(ix)
@@ -75,8 +76,8 @@ rendersys_draw_entity:
 	 ;ld (hl), a
 
 	 ;; A sprite
-	 ld h, manentity_hsprite_ptr(ix)
-	 ld l, manentity_lsprite_ptr(ix)
+	 ld h, manentity_hprevsprite_ptr(ix)
+	 ld l, manentity_lprevsprite_ptr(ix)
 	 ld d, manentity_last_videoh_ptr(ix)
 	 ld e, manentity_last_videol_ptr(ix)
 	 ld b, manentity_w(ix)
@@ -127,10 +128,9 @@ rendersys_draw_entity:
 	 ld l, manentity_lsprite_ptr(ix)
 	 ld b, manentity_w(ix)
 	 ld c, manentity_h(ix)
-	call rendersys_draw_XOR_entity 
+	jp rendersys_draw_XOR_entity 
 
-
-	ret
+	;ret
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;

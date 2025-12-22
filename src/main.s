@@ -34,6 +34,15 @@
 .area _DATA
 .area _CODE
 
+cpct_waitNoVSYNC::
+   ld b, #0xf5
+   cpct_waitNoVSYNC_loop:
+    in a, (c)
+    rra
+   jr c, cpct_waitNoVSYNC_loop
+
+   ret
+
 _main::
    ;; Desactivamos el firmware para que no se ejecute su código en cada interrupción de la CPU (ninguna llamada que hagamos a paritr de aquí a funciones 
    ;; del firmware funcionará)
@@ -61,6 +70,12 @@ loop:
    ;call manentity_update
    cpctm_setBorder_asm HW_WHITE
 
+   ld d, #50
+   waitVSYNC_loop:
    call cpct_waitVSYNC_asm
+   call cpct_waitNoVSYNC
+
+    dec d
+   jr nz, waitVSYNC_loop
 
    jr    loop
