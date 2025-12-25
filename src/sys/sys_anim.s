@@ -18,7 +18,6 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
 animsys_change_sprite:
-	;PROBAR OCN UNA VELOCIDAD ENTRE [-1,-3] E IR VIENDO CAMBIOS DEL SPRITE
 	;; Update prev sprite ptr with current one (to "erase" sprite in render system)
 	ld a, manentity_lsprite_ptr(ix)
 	ld manentity_lprevsprite_ptr(ix), a
@@ -26,7 +25,7 @@ animsys_change_sprite:
 	ld manentity_hprevsprite_ptr(ix), a
 
 	;; Change current sprite
-	ld h, manentity_hanim_ptr(ix)				;; / HL = current animation ptr
+	ld h, manentity_hanim_ptr(ix)			;; / HL = current animation ptr
 	ld l, manentity_lanim_ptr(ix) 			;; \
 	xor a
 	ld b, manentity_vx(ix) 					;; B = vx (num of jumps of 2 bytes to reach next anim ptr)
@@ -35,11 +34,11 @@ animsys_change_sprite:
 
 	animsys_change_sprite_update:
 	 ld a, #2
-	 add l 							;; / 
-	 ld l, a 							;; | Move ptr to animation to next animation (HL += 2). If HL != 0x0000: H will be update, else: move 
-	 ld a, h 							;; | ptr to first step of _star_animation
-	 adc #0 							;; |
-	 ld h, a 							;; \
+	 add l 									;; / 
+	 ld l, a 								;; | Move ptr to animation to next animation (HL += 2). If HL != 0x0000: H will be update, else: move 
+	 ld a, h 								;; | ptr to first step of _star_animation
+	 adc #0 								;; |
+	 ld h, a 								;; \
 
 	 ld a, (hl)
 	 inc hl
@@ -62,11 +61,11 @@ animsys_change_sprite:
 
 	animsys_change_sprite_reset_animation:
 	 ;; Before inc hl, HL = high bit of 0x0000
-	 inc hl 							;; /
-	 ld a, (hl) 						;; | HL = *HL (HL points to first step of _star_animation)
-	 inc hl 							;; |
-	 ld h, (hl) 						;; |
-	 ld l, a 							;; \
+	 inc hl 								;; /
+	 ld a, (hl) 							;; | HL = *HL (HL points to first step of _star_animation)
+	 inc hl 								;; |
+	 ld h, (hl) 							;; |
+	 ld l, a 								;; \
 
 	jp animsys_change_sprite_update_dec_counter_B
 

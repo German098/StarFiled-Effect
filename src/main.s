@@ -19,6 +19,7 @@
 ;; Include all CPCtelera constant definitions, macros and variables
 .include "cpctelera.h.s"
 .include "man/man_entity.h.s"
+.include "man/man_components.h.s"
 .include "sys/sys_render.h.s"
 .include "sys/sys_physics.h.s"
 .include "sys/sys_collision.h.s"
@@ -49,6 +50,7 @@ _main::
    call cpct_disableFirmware_asm
 
    call manentity_init
+   call mancomponents_init
    call sysrender_init
 
    ld a, #manentity_num_entities
@@ -57,24 +59,23 @@ _main::
    ;; Render loop
 loop:
    cpctm_setBorder_asm HW_GREEN
-   ;call syscollision_update
+   call syscollision_update
 
    cpctm_setBorder_asm HW_YELLOW
    call sysrender_update
 
    cpctm_setBorder_asm HW_PINK
    call animsys_update
-   ;cpctm_setBorder_asm HW_ORANGE
-   ;call sysphysics_update
-   ;cpctm_setBorder_asm HW_BLUE
-   ;call manentity_update
+   cpctm_setBorder_asm HW_ORANGE
+   call sysphysics_update
+   cpctm_setBorder_asm HW_BLUE
+   call manentity_update
    cpctm_setBorder_asm HW_WHITE
 
    ld d, #50
    waitVSYNC_loop:
    call cpct_waitVSYNC_asm
    call cpct_waitNoVSYNC
-
     dec d
    jr nz, waitVSYNC_loop
 

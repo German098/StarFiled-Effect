@@ -3,6 +3,7 @@
 .include "cpctelera.h.s"
 .include "cpctelera_functions.h.s"
 .include "../man/man_entity.h.s"
+.include "../man/man_components.h.s"
 .include "../assets/assets.h.s"
 
 ;;
@@ -29,21 +30,6 @@ sysrender_init::
 
 	ret
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; Update render frame.
-;; INPUTS: -
-;; OUTPUTS: -
-;; CHANGED: AF, HL, BC, IX, ?
-;; WARNING: -
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-sysrender_update::
-	ld a, #manentity_cmp_render_mask
-	ld hl, #rendersys_draw_entity
-	jp manentity_forall_matching
-
-	;ret
 
 ;;
 ;; PRIVATE FUNCTIONS
@@ -95,13 +81,12 @@ rendersys_draw_entity:
 	 ld a, manentity_vx(ix)
 
 	 ;; Substract current vx to current star position (to draw it in new position of screen)
-	 ;; WARNING: uncomment it
-	 ;add l
-	 ;ld l, a
-	 ;ld a, h
-	 ;ccf
-	 ;sbc #0
-	 ;ld h, a
+	 add l
+	 ld l, a
+	 ld a, h
+	 ccf
+	 sbc #0
+	 ld h, a
 
 	jp rendersys_draw_entity_draw_new_position
 
@@ -184,3 +169,23 @@ rendersys_draw_XOR_entity:
 
 	ret											;; [1 | 3]
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Update render frame.
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: AF, HL, BC, IX, ?
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+sysrender_update::
+	;ld a, #manentity_cmp_render_mask
+	;ld hl, #rendersys_draw_entity
+	;jp manentity_forall_matching
+
+	ld hl, (_component_array_ptr)
+	ld de, #rendersys_draw_entity
+	jp entityman_forall_ptr
+
+	;ret

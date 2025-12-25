@@ -2,16 +2,17 @@
 
 .include "cpctelera.h.s"
 .include "../man/man_entity.h.s"
-.include "cpctelera_functions.h.s"
+.include "../man/man_components.h.s"
 .include "../man/man_animcontrol.h.s"
 .include "../assets/assets.h.s"
+.include "cpctelera_functions.h.s"
 
 ;; Default entity
 manentity_default:
 	.db #manentity_cmp_star_mask		;; cmps
-	.db 5, 0 							;; [x, y]
+	.db 78, 0 							;; [x, y]
 	.db 2, 6 							;; [w, h] (bytes)
-	.db -1 								;; vx
+	.db 0 								;; vx
 	.dw 0x0000 							;; last video ptr
 	.dw _star_animation					;; anim ptr
 	.dw _sp_star_0						;; prev star sprite used
@@ -54,18 +55,33 @@ manentity_init::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Create new entity in manentity_array with Y and Vx pseudo-random values, [1, 199] and [-1, -3] respectively. 
+;; Create new entity in manentity_array with Y and Vx pseudo-random values, [1, 199] and [-1, -3] respectively.
 ;; INPUTS: -
 ;; OUTPUTS: IX (ptr to created entity)
 ;; CHANGED: HL, DE, BC, AF, IX
-;; WARNING: 
+;; WARNING:
 ;;	- There must be free space in the array to insert a new entity.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_create::
 	call manentity_new
-	ld__ix_de
 
+	ld__ix_de 											;; IX = DE
+
+	;; Insert ptr entity (DE) in _component_array_ptr
+	call mancomponents_insert
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Replace selected entity in manentity_array (DE) with new entity.
+;; INPUTS: DE (ptr to array entity to be replaced)
+;; OUTPUTS: IX (ptr to created entity)
+;; CHANGED: HL, DE, BC, AF, IX
+;; WARNING:
+;;	- DE ptr to entity must exists in the array.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_refresh:
 	ld hl, #manentity_default
 	ld bc, #manentity_size
 
@@ -108,7 +124,7 @@ manentity_create::
 	 res 7, l
 
 	manentity_create_set_Y_random_value:
-	ld manentity_y(ix), l 
+	ld manentity_y(ix), l
 
 	manentity_create_set_random_vx:
 	 ;; Get Vx value in range (Vx => 0000 0001, 0000 0011)
@@ -118,7 +134,7 @@ manentity_create::
 	jr z, manentity_create_random_vx
 	 neg
 	 ;; Vx = [-1, -3] (WARNING: set to 0 for testing)
-	 ld manentity_vx(ix), #0 ;a
+	 ld manentity_vx(ix), a
 
 	ret
 
@@ -159,8 +175,8 @@ manentity_add_A_entities::
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_set_for_destruction::
 	ld a, #(manentity_cmp_alive_mask | manentity_destroy_mask)
-	xor manentity_cmps(ix)
-	ld manentity_cmps(ix), a
+	xor manentity_cmps(ix) 
+	ld manentity_cmps(ix), a 									;; A = dead entity but renderizable yet
 
 	ret
 
@@ -251,6 +267,38 @@ manentity_forall_matching::
 
 	ret
 
+;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Iterate array of ptrs and call function DE for each one
+;; ENTRADAS: HL (array of _components_array), DE (ptr call function)
+;; SALIDAS: -
+;; ALTERADOS: -
+;;
+;;;;;;;;;;;;;;;;;;;;;
+entityman_forall_ptr::
+	ld (_function_to_call), de
+
+	inc hl 									;; / HL = first entity ptr of array
+	inc hl 									;; \
+	entityman_forall_ptr_loop:
+	 ld a, (hl)
+	 ld__ixl_a
+	 inc hl
+	 or (hl) 								;; / If &HL == 0x0000: end of array of components, so ret, else: call function
+	ret z 									;; \ 
+	 
+	 ld a, (hl)
+	 inc hl
+	 ld__ixh_a	 							;; IX = entity ptr in manentity_array
+
+	 push hl
+	 _function_to_call = .+1
+	call _function_to_call
+	 pop hl
+
+	jp entityman_forall_ptr_loop
+
+	;ret
 
 ;;
 ;; PRIVATE FUNCTIONS
@@ -318,44 +366,31 @@ manentity_destroy:
 
 	manentity_destroy_continue:
 	 ;; Substract manentity_size from the value of manentity_array_next ptr 
-	 ld a, (manentity_array_next) 				 
-	 sub #manentity_size 						
-	 ld (manentity_array_next), a 				
-	 ld l, a
-	 ld a, (manentity_array_next + 1)
-	 sbc #0
-	 ld h, a
-	 ld (manentity_array_next + 1), a
-
-	 ;; WARNING: For now, manentity_size is 5 bytes, so take ldir in any case If manentity_size grows, improve code.
-	 ;; HL = new manentity_array_next ptr value
-	 ;ld a, #<manentity_array
-	 ;cp l
-	 ;jr nz, manentity_destroy_transfer_data
-	 ;ld a, #>manentity_array
-	 ;cp h
-	 ;ret z
-
-	;manentity_destroy_transfer_data:
-	 ld__de_ix
-	 ld bc, #manentity_size
-
-	 ldir
-
-	 ;; Decrement number of entities created in the array
-	 ;ld a, (manentity_array_counter)
-	 ;dec a
-	 ;ld (manentity_array_counter), a
+	 ;ld a, (manentity_array_next) 				 
+	 ;sub #manentity_size 						
+	 ;ld (manentity_array_next), a 				
+	 ;ld l, a
+	 ;ld a, (manentity_array_next + 1)
+	 ;sbc #0
+	 ;ld h, a
+	 ;ld (manentity_array_next + 1), a
+	 ;
+	 ;ld__de_ix
+	 ;ld bc, #manentity_size
+	 ;
+	 ;ldir
 
 	 ;; Set manentity_forall_matching_next_entity_incr value to 0
-	 xor a
-	 ld (manentity_forall_matching_next_entity_incr), a
+	 ;xor a
+	 ;ld (manentity_forall_matching_next_entity_incr), a
  		
  	 ;; Decrement number of max entities to delete in current frame
 	 ld a, (_manentity_num_ents_to_destroy)
 	 dec a
 	 ld (_manentity_num_ents_to_destroy), a
 
-	jp manentity_create 
+	 ld__de_ix
+
+	jp manentity_refresh ;manentity_create 
 
 	;ret

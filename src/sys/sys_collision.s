@@ -36,8 +36,8 @@ syscollision_update::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 syscollision_check_left_boundary::
-	ld a, manentity_x(ix)
-	bit 7, a
+	ld a, manentity_x(ix) 								;; / Check sign of vx
+	bit 7, a 											;; \ 
 	jp m, syscollision_check_left_boundary_is_out
 
 	ret

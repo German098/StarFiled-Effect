@@ -3,7 +3,7 @@
 ;;
 ;; CONSTANTS
 ;;
-manentity_num_entities 		    = 1
+manentity_num_entities 		    = 3
 manentity_num_bytes 		    = manentity_num_entities * manentity_size
 manentity_max_entities_to_destroy = 4
 
@@ -51,4 +51,5 @@ manentity_size = manentity_hsprite_ptr + 1
 .globl manentity_add_A_entities
 .globl manentity_set_for_destruction
 .globl manentity_set_to_no_renderizable
+.globl entityman_forall_ptr
 .globl manentity_forall_matching
