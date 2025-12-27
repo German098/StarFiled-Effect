@@ -5,6 +5,7 @@
 
 .include "../man/man_animcontrol.h.s"
 .include "../man/man_entity.h.s"
+.include "../man/man_components.h.s"
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -79,5 +80,6 @@ animsys_change_sprite:
 ;;;;;;;;;;;;;;;;;;;;;
 animsys_update::
 	ld a, #manentity_cmp_star_mask
-	ld hl, #animsys_change_sprite
-	jp manentity_forall_matching
+	ld de, #animsys_change_sprite
+	call mancomponents_get_array_ptr
+	jp manentity_forall_ptr

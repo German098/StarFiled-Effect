@@ -6,7 +6,7 @@
 ;;
 ;; GLOBAL TAGS
 ;;
-.globl _component_array_ptr
+.globl mancomponents_get_array_ptr
 
 ;;
 ;; FUNCTION DECLARATIONS
@@ -15,8 +15,13 @@
 .globl mancomponents_init
 .globl mancomponents_set_component_array
 .globl mancomponents_insert
+.globl mancomponents_sort
+
+;;
+;; ENUMS
+;;
 
 ;; Enum component entity types
-e_component_position = 0
+e_mancomponents_position = 0
 ;; Number of components (to size of _components_array)
-e_component_num = e_component_position + 1
+e_mancomponents_num = e_mancomponents_position + 1

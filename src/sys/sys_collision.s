@@ -1,6 +1,7 @@
 .module Sys_physics_S
 
 .include "../man/man_entity.h.s"
+.include "../man/man_components.h.s"
 
 ;;
 ;; PUBLIC FUNCTIONS
@@ -17,8 +18,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 syscollision_update::
 	ld a, #manentity_cmp_alive_mask
-	ld hl, #syscollision_check_left_boundary
-	jp manentity_forall_matching
+	ld de, #syscollision_check_left_boundary
+	call mancomponents_get_array_ptr
+	jp manentity_forall_ptr
 
 	;ret
 

@@ -8,6 +8,14 @@
 .include "cpctelera_functions.h.s"
 
 ;; Default entity
+
+;xxxx0xxxxxxx1
+;
+;v mov 	
+;1 12 	1 0 
+;2 6	2 0
+;3 4
+
 manentity_default:
 	.db #manentity_cmp_star_mask		;; cmps
 	.db 78, 0 							;; [x, y]
@@ -65,7 +73,6 @@ manentity_init::
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_create::
 	call manentity_new
-
 	ld__ix_de 											;; IX = DE
 
 	;; Insert ptr entity (DE) in _component_array_ptr
@@ -74,7 +81,7 @@ manentity_create::
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Replace selected entity in manentity_array (DE) with new entity.
-;; INPUTS: DE (ptr to array entity to be replaced)
+;; INPUTS: DE (ptr to array entity to be replaced), BC (current ptr of mancomponent_array_ptr to refresh)
 ;; OUTPUTS: IX (ptr to created entity)
 ;; CHANGED: HL, DE, BC, AF, IX
 ;; WARNING:
@@ -82,6 +89,8 @@ manentity_create::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_refresh:
+	ld (_manentity_refresh_ptr_to_sort), bc
+
 	ld hl, #manentity_default
 	ld bc, #manentity_size
 
@@ -136,7 +145,12 @@ manentity_refresh:
 	 ;; Vx = [-1, -3] (WARNING: set to 0 for testing)
 	 ld manentity_vx(ix), a
 
-	ret
+	;; Sort new star ptr in mancomponent_array_ptr
+	_manentity_refresh_ptr_to_sort=.+1
+	ld hl, #0x0000
+	jp mancomponents_sort
+
+	;ret
 
 	manentity_create_random_vx:
 	call cpct_getRandom_xsp40_u8_asm
@@ -196,22 +210,6 @@ manentity_set_to_no_renderizable::
 
 	ret
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;; Update entities of array per frame (delete manentity_max_entities_to_destroy entities).
-;; INPUTS: -
-;; OUTPUTS: -
-;; CHANGED: IX, AF, BC, ?
-;; WARNINGS: -
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-manentity_update::
-	call manentity_set_destroy_func_values 			;; Set value of num entities to delete in manentity_destroy function
-	ld a, #manentity_destroy_mask
-	ld hl, #manentity_destroy
-	jp manentity_forall_matching
-
-	;ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -223,60 +221,64 @@ manentity_update::
 ;;	- There must be at least one entity to destroy in the array.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-manentity_forall_matching_next_entity_incr:
-	.dw #manentity_size
-manentity_forall_matching::
-	ld ix, #manentity_array
-	ld (_manentity_cmp_mask), a
-
-	;ld a, (manentity_array_counter)
-	;cp #0
-	;ret z
-
-	ld a, #manentity_num_entities
-	ld (_manentity_counter), a
-	manentity_forall_matching_loop:
-	 _manentity_cmp_mask=.+1
-	 ld d, #0x00
-	 ld a, d
-	 and manentity_cmps(ix)
-	 cp d
-	jr nz, manentity_forall_matching_next_entity
-
-	 push ix
-	 push hl
-	 ld (_manentity_function_to_call), hl
-	 _manentity_function_to_call =.+1
-	call #0x0000
-	 pop hl
-	 pop ix
-
-	manentity_forall_matching_next_entity:
-	 _manentity_counter=.+1
-	 ld a, #0x00
-	 dec a
-	 cp #0
-	ret z 
-	 ld (_manentity_counter), a
-
-	 ld bc, (manentity_forall_matching_next_entity_incr)
-	 add ix, bc
-	 ld a, #manentity_size
-	 ld (manentity_forall_matching_next_entity_incr), a
-	jr manentity_forall_matching_loop
-
-	ret
+;manentity_forall_matching_next_entity_incr:
+;	.dw #manentity_size
+;manentity_forall_matching::
+;	ld ix, #manentity_array
+;	ld (_manentity_cmp_mask), a
+;
+;	;ld a, (manentity_array_counter)
+;	;cp #0
+;	;ret z
+;
+;	ld a, #manentity_num_entities
+;	ld (_manentity_counter), a
+;	manentity_forall_matching_loop:
+;	 _manentity_cmp_mask=.+1
+;	 ld d, #0x00
+;	 ld a, d
+;	 and manentity_cmps(ix)
+;	 cp d
+;	jr nz, manentity_forall_matching_next_entity
+;
+;	 push ix
+;	 push hl
+;	 ld (_manentity_function_to_call), hl
+;	 _manentity_function_to_call =.+1
+;	call #0x0000
+;	 pop hl
+;	 pop ix
+;
+;	manentity_forall_matching_next_entity:
+;	 _manentity_counter=.+1
+;	 ld a, #0x00
+;	 dec a
+;	 cp #0
+;	ret z 
+;	 ld (_manentity_counter), a
+;
+;	 ld bc, (manentity_forall_matching_next_entity_incr)
+;	 add ix, bc
+;	 ld a, #manentity_size
+;	 ld (manentity_forall_matching_next_entity_incr), a
+;	jr manentity_forall_matching_loop
+;
+;	ret
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Iterate array of ptrs and call function DE for each one
-;; ENTRADAS: HL (array of _components_array), DE (ptr call function)
+;; ENTRADAS: HL (array of _components_array), DE (ptr call function), A (component entity mask)
 ;; SALIDAS: -
-;; ALTERADOS: -
+;; ALTERADOS: HL, AF, D
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
-entityman_forall_ptr::
-	ld (_function_to_call), de
+manentity_forall_ptr::
+	ld (_manentity_function_to_call), de
+	ld (_manentity_cmp_mask), a
+
+	xor a
+	ld (_manentity_break_forall), a 		;; If value of pos _manentity_break_forall != 0: force to break for loop, else: continue
 
 	inc hl 									;; / HL = first entity ptr of array
 	inc hl 									;; \
@@ -291,12 +293,43 @@ entityman_forall_ptr::
 	 inc hl
 	 ld__ixh_a	 							;; IX = entity ptr in manentity_array
 
+	 _manentity_cmp_mask=.+1
+	 ld d, #0x00
+	 ld a, d
+	 and manentity_cmps(ix)
+	 cp d
+	jr nz, entityman_forall_ptr_loop
+
 	 push hl
-	 _function_to_call = .+1
-	call _function_to_call
+	 _manentity_function_to_call = .+1
+	call _manentity_function_to_call
 	 pop hl
 
+	 ;; Check break
+	 _manentity_break_forall=.+1
+	 ld a, #0x00
+	 or #0
+	ret nz 
+
 	jp entityman_forall_ptr_loop
+
+	;ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Update entities of array per frame (delete manentity_max_entities_to_destroy entities).
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: IX, AF, BC, ?
+;; WARNINGS: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_update::
+	call manentity_set_destroy_func_values 			;; Set value of num entities to delete in manentity_destroy function
+	ld a, #manentity_destroy_mask
+	ld de, #manentity_destroy
+	call mancomponents_get_array_ptr
+	jp manentity_forall_ptr
 
 	;ret
 
@@ -344,7 +377,7 @@ manentity_set_destroy_func_values:
 ;; Destroy entity of manentity_array. Copy data of last entity inserted in ptr of the entity to delete (only if it is not the last one) and decrement 
 ;; manentity_array_next in manentity_size bytes.
 ;; INPUTS: IX (ptr entity to destroy in the array)
-;; OUTPUTS: -
+;; OUTPUTS: DE/IX (ptr entity to destroy in manentity_array), BC (current ptr of mancomponent_array_ptr deleted/refreshed)
 ;; CHANGED: HL, DE, BC, AF
 ;; WARNINGS: 
 ;;	- There must be at least one entity to destroy in the array.
@@ -360,7 +393,7 @@ manentity_destroy:
 	;; Number of entities to delete reached, so, set _manentity_counter of manentity_forall_matching to 1, therefor, in the current iteration of it, 
 	;; the loop will end.
 	inc a
-	ld (_manentity_counter), a
+	ld (_manentity_break_forall), a
 
 	ret
 
@@ -389,8 +422,15 @@ manentity_destroy:
 	 dec a
 	 ld (_manentity_num_ents_to_destroy), a
 
+	 ;; To make ldir in manentity_refresh function, DE = ptr entity to destroy in manentity_array
 	 ld__de_ix
 
-	jp manentity_refresh ;manentity_create 
+	 ;; HL = HL (next ptr of mancomponent_array_ptr) - 2 = current ptr of mancomponent_array_ptr
+	 dec hl
+	 dec hl
+	 ld b, h
+	 ld c, l
+
+	jp manentity_refresh 
 
 	;ret

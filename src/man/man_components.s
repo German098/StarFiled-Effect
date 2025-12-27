@@ -3,19 +3,24 @@
 ;;
 .module Components_manager_S
 
+.include "cpctelera.h.s"
 .include "../man/man_entity.h.s"
 .include "../man/man_components.h.s"
 
 ;; Array of components
-_components_arrays_size = (manentity_num_entities + 1) * 2
-_components_array:
+mancomponents_arrays_size = (manentity_num_entities + 1) * 2
+mancomponents_array:
 	;; Array component position
-	.ds _components_arrays_size		;; / Array = [ptr to next ptr entity to insert, 0x????, ..., 0x????, 0x0000]
+	.ds mancomponents_arrays_size		;; / Array = [ptr to next ptr entity to insert, 0x????, ..., 0x????, 0x0000]
 	.dw 0x0000					;; \
-_components_array_end:
+mancomponents_array_end:
 ;; Ptr to current array of _components_array to operate with
-_component_array_ptr::
+mancomponent_array_ptr:
 	.dw 0x0000
+
+;;
+;; PUBLIC FUNCTIONS
+;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -28,7 +33,7 @@ _component_array_ptr::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 mancomponents_init::
-	ld a, #e_component_position
+	ld a, #e_mancomponents_position
 	call mancomponents_set_component_array
 
 	;; Init ptr to next ptr entity of Ath array of components
@@ -44,27 +49,17 @@ mancomponents_init::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Get the Ath array of _components_array.
-;; INPUTS: A (component array)
-;; OUTPUTS: HL (ptr to component array of _components_array)
-;; CHANGED: HL, DE, AF
-;; WARNING: 
-;;		- 0 >= A <= e_component_num - 1
+;; Get mancomponent_array_ptr
+;; INPUTS: -
+;; OUTPUTS: HL (ptr to array of mancomponents_array)
+;; CHANGED: HL
+;; WARNING: -
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-mancomponents_get_component_array:
-	ld hl, #_components_array					;; Ptr to first array of _components_array
-	ld de, #_components_arrays_size 				;; Size of each array of _components_array
+mancomponents_get_array_ptr::
+	ld hl, (mancomponent_array_ptr)
 
-	aientityman_get_component_array_loop:
-	 or a
-	ret z
-
-	 dec a
-	 add hl, de
-	jp aientityman_get_component_array_loop
-
-	;ret
+	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -77,7 +72,7 @@ mancomponents_get_component_array:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 mancomponents_set_component_array::
 	call mancomponents_get_component_array
-	ld (_component_array_ptr), hl 					;; Set current array of components
+	ld (mancomponent_array_ptr), hl 					;; Set current array of components
 
 	ret
 
@@ -85,14 +80,14 @@ mancomponents_set_component_array::
 ;;
 ;; Insert new ptr to A array of _components_array
 ;; INPUTS: DE (ptr to entity of manentity_array)
-;; OUTPUTS: -
+;; OUTPUTS: BC (inserted ptr of mancomponent_array_ptr)
 ;; CHANGED: HL, DE, BC, A
 ;; WARNING: 
 ;;		- There must be free space in the Ath array.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 mancomponents_insert::
-	ld hl, (_component_array_ptr)			;; Ptr to array of components_array (next entity ptr)
+	ld hl, (mancomponent_array_ptr)			;; Ptr to array of components_array (next entity ptr)
 
 	;; Update next entity ptr
 	ld c, (hl)
@@ -104,8 +99,124 @@ mancomponents_insert::
 
 	ld a, e
 	ld (bc), a 						;; / 
-	inc bc 						;; | Insert new ptr in current array of components_array (HL)
+	inc bc 						;; | Insert new ptr in current array of components_array
 	ld a, d 						;; |
 	ld (bc), a 						;; \
 
+	dec bc 						;; BC = inserted ptr of mancomponent_array_ptr 
+	ld h, b  
+	ld l, c  
+
 	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Sort ptr entity of mancomponent_array_ptr depends on insertion mode (A).
+;; INPUTS: HL (ptr to sort in mancomponent_array_ptr)
+;; OUTPUTS: -
+;; CHANGED: 
+;; WARNING: 
+;;		- Size of mancomponent_array must be >= 1.
+;;		- HL muest be a valid pointer of mancomponent_array_ptr.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+mancomponents_sort::
+	ld a, (hl)							;; /
+	ld__ixl_a 							;; | IX = ptr entity of manentity_array
+	inc hl 							;; |
+	ld a, (hl) 							;; |
+	ld__ixh_a 							;; \
+	
+	ld hl, (mancomponent_array_ptr)
+	inc hl
+	inc hl
+	ld bc, #0x0000
+
+	mancomponents_sort_loop:
+	 ld a, (hl)
+	 cp__ixl
+	 ld__iyl_a
+	jr nz, mancomponents_sort_continue
+	 inc hl
+	 ld a, (hl)
+	 cp__ixh
+	jr z, mancomponents_sort_transfer_bytes
+	jr mancomponents_sort_continue_2
+
+	mancomponents_sort_continue:
+	 inc hl
+	 ld a, (hl)
+	mancomponents_sort_continue_2:
+	 ld__iyh_a
+
+	 ld a, manentity_y(iy)
+	 sub manentity_y(ix)
+	jp m, mancomponents_sort_next_ptr
+
+	 inc hl
+	jr mancomponents_sort_update_counter
+
+	mancomponents_sort_transfer_bytes:
+	 ld a, b
+	 or c
+	ret z 
+
+	 ld d, h
+	 ld e, l
+	 dec de
+	 dec de
+	 ex de, hl
+
+	 lddr
+
+	 inc hl
+	 ld__a_ixl
+	 ld (hl), a
+	 inc hl
+	 ld__a_ixh
+	 ld (hl), a
+
+	ret
+
+	mancomponents_sort_next_ptr:
+	 inc hl
+
+	 ld a, b
+	 or c
+	jr z, mancomponents_sort_loop 
+
+	mancomponents_sort_update_counter:
+	 inc bc
+	 inc bc
+
+	jp mancomponents_sort_loop
+	
+	;ret
+
+;;
+;; PRIVATE FUNCTIONS
+;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Get the Ath array of _components_array.
+;; INPUTS: A (component array)
+;; OUTPUTS: HL (ptr to component array of _components_array)
+;; CHANGED: HL, DE, AF
+;; WARNING: 
+;;		- 0 >= A <= e_component_num - 1
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+mancomponents_get_component_array:
+	ld hl, #mancomponents_array					;; Ptr to first array of _components_array
+	ld de, #mancomponents_arrays_size 				;; Size of each array of _components_array
+
+	aientityman_get_component_array_loop:
+	 or a
+	ret z
+
+	 dec a
+	 add hl, de
+	jp aientityman_get_component_array_loop
+
+	;ret

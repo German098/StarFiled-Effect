@@ -180,12 +180,9 @@ rendersys_draw_XOR_entity:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 sysrender_update::
-	;ld a, #manentity_cmp_render_mask
-	;ld hl, #rendersys_draw_entity
-	;jp manentity_forall_matching
-
-	ld hl, (_component_array_ptr)
+	ld a, #manentity_cmp_render_mask
 	ld de, #rendersys_draw_entity
-	jp entityman_forall_ptr
+	call mancomponents_get_array_ptr
+	jp manentity_forall_ptr
 
 	;ret
