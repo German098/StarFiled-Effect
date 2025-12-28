@@ -113,8 +113,8 @@ mancomponents_insert::
 ;;
 ;; Sort ptr entity of mancomponent_array_ptr depends on insertion mode (A).
 ;; INPUTS: IX (ptr entity of manentity_array), HL (ptr to sort in mancomponent_array_ptr)
-;; OUTPUTS: -
-;; CHANGED: 
+;; OUTPUTS: DE (ptr sorted in mancomponent_array_ptr)
+;; CHANGED: AF, HL, DE, BC, IY
 ;; WARNING: 
 ;;		- Size of mancomponent_array must be >= 1.
 ;;		- HL muest be a valid pointer of mancomponent_array_ptr.
@@ -181,13 +181,13 @@ mancomponents_sort::
 	 ld a, b
 	 and #0b10000000
 	jr z, mancomponents_sort_transfer_bytes_right
+	 inc de 
+	 inc de
 	 res 7, b
 	 ld a, b
 	 or c
 	ret z
 
-	 inc de 
-	 inc de
 	 ld h, d
 	 ld l, e
 	 add hl, bc
@@ -205,6 +205,7 @@ mancomponents_sort::
 	 inc de
 	 ld__a_ixh
 	 ld (de), a
+	 dec de
 
 	ret
 
@@ -221,6 +222,7 @@ mancomponents_sort::
 	 inc de
 	 ld__a_ixh
 	 ld (de), a
+	 dec de
 
 	ret
 

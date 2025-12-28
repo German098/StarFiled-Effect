@@ -18,7 +18,7 @@
 
 manentity_default:
 	.db #manentity_cmp_star_mask		;; cmps
-	.db 78, 0 							;; [x, y]
+	.db #manentity_distance_X, 0 		;; [x, y]
 	.db 2, 6 							;; [w, h] (bytes)
 	.db 0 								;; vx
 	.dw 0x0000 							;; last video ptr
@@ -32,8 +32,13 @@ manentity_array::
 ;; Ptr next entity to insert in manentity_array
 manentity_array_next:
 	.dw #manentity_array
-;manentity_array_counter:
-;	.db 0
+
+;; Array distance to travel respect to vx values abs([-1, -3])
+manentity_array_vx_bytes:
+	.db manentity_distance_X / manentity_cmp_vx_0
+	.db manentity_distance_X / manentity_cmp_vx_1
+	.db manentity_distance_X / manentity_cmp_vx_2
+
 
 ;;
 ;; PUBLIC FUNCTIONS
@@ -139,16 +144,35 @@ manentity_refresh:
 	 ;; Get Vx value in range (Vx => 0000 0001, 0000 0011)
 	 ld a, l
 	 cp #0
-	 and #0b00000011
+	 and #manentity_cmp_vx_2
 	jr z, manentity_create_random_vx
 	 neg
 	 ;; Vx = [-1, -3] (WARNING: set to 0 for testing)
 	 ld manentity_vx(ix), a
 
 	;; Sort new star ptr in mancomponent_array_ptr
-	_manentity_refresh_ptr_to_sort=.+1
-	ld hl, #0x0000
-	jp mancomponents_sort
+	 _manentity_refresh_ptr_to_sort=.+1
+	 ld hl, #0x0000
+	call mancomponents_sort
+
+	 inc de 												;; /
+	 inc de 												;; |
+	 ld a, (de) 											;; | 
+	 ld b, a 												;; |
+	 ld__iyl_a 												;; | IY = valid ptr to next entity respect to IX
+	 inc de 												;; |
+	 ld a, (de) 											;; |
+	 ld__iyh_a 												;; |
+	 or b 													;; |
+	ret z 													;; \
+
+	 ld a, manentity_y(ix)
+	 add manentity_h(ix)
+	 sub manentity_y(iy)
+	ret m 													;; y position of IY is outside range [Y pos, Y pos + height] of IX (no rendering issues)
+
+	;; Y pos of IY is in range, so, check if IX is reacheble with vx and position of IX and vx of IY (manentity_array_vx_bytes)
+	jr .
 
 	;ret
 
