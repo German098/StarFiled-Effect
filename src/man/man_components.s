@@ -112,7 +112,7 @@ mancomponents_insert::
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Sort ptr entity of mancomponent_array_ptr depends on insertion mode (A).
-;; INPUTS: HL (ptr to sort in mancomponent_array_ptr)
+;; INPUTS: IX (ptr entity of manentity_array), HL (ptr to sort in mancomponent_array_ptr)
 ;; OUTPUTS: -
 ;; CHANGED: 
 ;; WARNING: 
@@ -121,75 +121,180 @@ mancomponents_insert::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 mancomponents_sort::
-	ld a, (hl)							;; /
-	ld__ixl_a 							;; | IX = ptr entity of manentity_array
-	inc hl 							;; |
-	ld a, (hl) 							;; |
-	ld__ixh_a 							;; \
-	
-	ld hl, (mancomponent_array_ptr)
-	inc hl
-	inc hl
+	ld d, h
+	ld e, l
 	ld bc, #0x0000
 
-	mancomponents_sort_loop:
+	inc hl
+	mancomponents_sort_check_right_side:
+	 inc hl
 	 ld a, (hl)
-	 cp__ixl
 	 ld__iyl_a
-	jr nz, mancomponents_sort_continue
 	 inc hl
+	 or (hl)
+	jr z, mancomponents_sort_left_side
 	 ld a, (hl)
-	 cp__ixh
-	jr z, mancomponents_sort_transfer_bytes
-	jr mancomponents_sort_continue_2
-
-	mancomponents_sort_continue:
-	 inc hl
-	 ld a, (hl)
-	mancomponents_sort_continue_2:
 	 ld__iyh_a
 
 	 ld a, manentity_y(iy)
 	 sub manentity_y(ix)
-	jp m, mancomponents_sort_next_ptr
+	jp m, mancomponents_sort_update_counter
 
-	 inc hl
-	jr mancomponents_sort_update_counter
-
-	mancomponents_sort_transfer_bytes:
+	mancomponents_sort_left_side:
 	 ld a, b
 	 or c
-	ret z 
+	jr nz, mancomponents_sort_transfer_bytes
 
-	 ld d, h
-	 ld e, l
+	set 7, b
+	;; Check left side
+	mancomponents_sort_check_left_side:
+	call mancomponents_get_array_ptr
 	 dec de
+
+	 ld a, (de)
+	 ld__iyh_a
 	 dec de
-	 ex de, hl
-
-	 lddr
-
+	 ld a, (de)
+	 ld__iyl_a
+	 cp (hl)
+	jr nz, mancomponents_sort_left_side_continue
 	 inc hl
-	 ld__a_ixl
-	 ld (hl), a
-	 inc hl
-	 ld__a_ixh
-	 ld (hl), a
+	 ld__a_iyh
+	 cp (hl)
+	jr z, mancomponents_sort_transfer_bytes 
 
-	ret
-
-	mancomponents_sort_next_ptr:
-	 inc hl
-
-	 ld a, b
-	 or c
-	jr z, mancomponents_sort_loop 
+	mancomponents_sort_left_side_continue:
+	 ld a, manentity_y(iy)
+	 sub manentity_y(ix)
+	jp m, mancomponents_sort_transfer_bytes 
 
 	mancomponents_sort_update_counter:
 	 inc bc
 	 inc bc
 
-	jp mancomponents_sort_loop
+	 ld a, b
+	 and #0b10000000
+	jr nz, mancomponents_sort_check_left_side 
+	jr mancomponents_sort_check_right_side
+
+	mancomponents_sort_transfer_bytes:
+	 ld a, b
+	 and #0b10000000
+	jr z, mancomponents_sort_transfer_bytes_right
+	 res 7, b
+	 ld a, b
+	 or c
+	ret z
+
+	 inc de 
+	 inc de
+	 ld h, d
+	 ld l, e
+	 add hl, bc
+	 push de
+	 ld d, h
+	 ld e, l
+	 inc de
+	 dec hl
+	 
+	 lddr
+	 pop de
+
+	 ld__a_ixl
+	 ld (de), a
+	 inc de
+	 ld__a_ixh
+	 ld (de), a
+
+	ret
+
+	mancomponents_sort_transfer_bytes_right:
+	 ld h, d
+	 ld l, e
+	 inc hl
+	 inc hl
+
+	 ldir
+
+	 ld__a_ixl
+	 ld (de), a
+	 inc de
+	 ld__a_ixh
+	 ld (de), a
+
+	ret
+
+
+;mancomponents_sort::
+;	ld a, (hl)							;; /
+;	ld__ixl_a 							;; | IX = ptr entity of manentity_array
+;	inc hl 							;; |
+;	ld a, (hl) 							;; |
+;	ld__ixh_a 							;; \
+;	
+;	ld hl, (mancomponent_array_ptr)
+;	inc hl
+;	inc hl
+;	ld bc, #0x0000
+;
+;	mancomponents_sort_loop:
+;	 ld a, (hl)
+;	 cp__ixl
+;	 ld__iyl_a
+;	jr nz, mancomponents_sort_continue
+;	 inc hl
+;	 ld a, (hl)
+;	 cp__ixh
+;	jr z, mancomponents_sort_transfer_bytes
+;	jr mancomponents_sort_continue_2
+;
+;	mancomponents_sort_continue:
+;	 inc hl
+;	 ld a, (hl)
+;	mancomponents_sort_continue_2:
+;	 ld__iyh_a
+;
+;	 ld a, manentity_y(iy)
+;	 sub manentity_y(ix)
+;	jp m, mancomponents_sort_next_ptr
+;
+;	 inc hl
+;	jr mancomponents_sort_update_counter
+;
+;	mancomponents_sort_transfer_bytes:
+;	 ld a, b
+;	 or c
+;	ret z 
+;
+;	 ld d, h
+;	 ld e, l
+;	 dec de
+;	 dec de
+;	 ex de, hl
+;
+;	 lddr
+;
+;	 inc hl
+;	 ld__a_ixl
+;	 ld (hl), a
+;	 inc hl
+;	 ld__a_ixh
+;	 ld (hl), a
+;
+;	ret
+;
+;	mancomponents_sort_next_ptr:
+;	 inc hl
+;
+;	 ld a, b
+;	 or c
+;	jr z, mancomponents_sort_loop 
+;
+;	mancomponents_sort_update_counter:
+;	 inc bc
+;	 inc bc
+;
+;	jp mancomponents_sort_loop
 	
 	;ret
 

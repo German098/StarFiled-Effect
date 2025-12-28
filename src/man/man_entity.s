@@ -66,7 +66,7 @@ manentity_init::
 ;; Create new entity in manentity_array with Y and Vx pseudo-random values, [1, 199] and [-1, -3] respectively.
 ;; INPUTS: -
 ;; OUTPUTS: IX (ptr to created entity)
-;; CHANGED: HL, DE, BC, AF, IX
+;; CHANGED: HL, DE, BC, AF, IX, IY
 ;; WARNING:
 ;;	- There must be free space in the array to insert a new entity.
 ;;
@@ -83,7 +83,7 @@ manentity_create::
 ;; Replace selected entity in manentity_array (DE) with new entity.
 ;; INPUTS: DE (ptr to array entity to be replaced), BC (current ptr of mancomponent_array_ptr to refresh)
 ;; OUTPUTS: IX (ptr to created entity)
-;; CHANGED: HL, DE, BC, AF, IX
+;; CHANGED: HL, DE, BC, AF, IX, IY
 ;; WARNING:
 ;;	- DE ptr to entity must exists in the array.
 ;;
@@ -169,10 +169,10 @@ manentity_refresh:
 manentity_add_A_entities::
 	dec a
 	ret m
-	ld__iyl_a 							;; IY(L) = A (save num entities to delete)
 
+	push af 							;; Save num entities to delete
 	call manentity_create
-	ld__a_iyl 							;; A = IY(L)
+	pop af
 
 	jr manentity_add_A_entities
 
@@ -376,8 +376,8 @@ manentity_set_destroy_func_values:
 ;;
 ;; Destroy entity of manentity_array. Copy data of last entity inserted in ptr of the entity to delete (only if it is not the last one) and decrement 
 ;; manentity_array_next in manentity_size bytes.
-;; INPUTS: IX (ptr entity to destroy in the array)
-;; OUTPUTS: DE/IX (ptr entity to destroy in manentity_array), BC (current ptr of mancomponent_array_ptr deleted/refreshed)
+;; INPUTS: IX (ptr entity to destroy in the array), HL (array of _components_array)
+;; OUTPUTS: DE/IX (ptr entity to destroy in manentity_array), HL/BC (current ptr of mancomponent_array_ptr deleted/refreshed)
 ;; CHANGED: HL, DE, BC, AF
 ;; WARNINGS: 
 ;;	- There must be at least one entity to destroy in the array.
