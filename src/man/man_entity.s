@@ -12,7 +12,7 @@
 ;xxxx0xxxxxxx1
 ;
 ;v mov 	
-;1 12 	1 0 
+;1 12 	1 12 
 ;2 6	2 0
 ;3 4
 
@@ -38,7 +38,6 @@ manentity_array_vx_bytes:
 	.db manentity_distance_X / manentity_cmp_vx_0
 	.db manentity_distance_X / manentity_cmp_vx_1
 	.db manentity_distance_X / manentity_cmp_vx_2
-
 
 ;;
 ;; PUBLIC FUNCTIONS
@@ -109,13 +108,14 @@ manentity_refresh:
 
 	;; Improve this part of the code!!!
 	;; Fill entity with pseudo-random data
+	manentity_create_pseudo_random_value:
 	call cpct_getRandom_xsp40_u8_asm
 	;; A = L = pseudo-radom byte > 0
 	;; Get Y value in range (Y => 0000 0001, 1100 0111)
-	and #0b10000000
+	 and #0b10000000
 	;; A & 1000 0000 = x000 0000: if A == 0: A = [1, 127] so save value, else: check 6th bit of A
  	jr nz, manentity_create_test_6_bit_num_random 
-	ld manentity_y(ix), l
+	 ld manentity_y(ix), l
 	;; Get Vx value
 	jp manentity_create_random_vx 			
 	
@@ -155,26 +155,28 @@ manentity_refresh:
 	 ld hl, #0x0000
 	call mancomponents_sort
 
-	 inc de 												;; /
-	 inc de 												;; |
-	 ld a, (de) 											;; | 
-	 ld b, a 												;; |
-	 ld__iyl_a 												;; | IY = valid ptr to next entity respect to IX
-	 inc de 												;; |
-	 ld a, (de) 											;; |
-	 ld__iyh_a 												;; |
-	 or b 													;; |
-	ret z 													;; \
+	 ld h, d												;; / HL = DE
+	 ld l, e 												;; \
+	 ld a, #manentity_cmp_star_mask
+	call mancomponents_get_next_ptr
+	jr z, manentity_create_check_prev_ptr
+	
+	call manentity_can_overlap_IX_IY
+	jr z, manentity_create_check_prev_ptr
+	jr nc, manentity_create_pseudo_random_value
 
-	 ld a, manentity_y(ix)
-	 add manentity_h(ix)
-	 sub manentity_y(iy)
-	ret m 													;; y position of IY is outside range [Y pos, Y pos + height] of IX (no rendering issues)
+	manentity_create_check_prev_ptr:
+	 ld d, h
+	 ld e, l
+	 ld a, #manentity_cmp_star_mask
+	call mancomponents_get_prev_ptr
+	ret z
 
-	;; Y pos of IY is in range, so, check if IX is reacheble with vx and position of IX and vx of IY (manentity_array_vx_bytes)
-	jr .
+	call manentity_can_overlap_IX_IY
+	ret z
+	jr nc, manentity_create_pseudo_random_value
 
-	;ret
+	ret
 
 	manentity_create_random_vx:
 	call cpct_getRandom_xsp40_u8_asm
@@ -458,3 +460,57 @@ manentity_destroy:
 	jp manentity_refresh 
 
 	;ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Check whether IX and IY can overlap at any point of screen travel or not.
+;; INPUTS: IX (ptr entity 1), IY (ptr entity 2)
+;; OUTPUTS: Sign flag or Zero flag (0: can overlap in some point, 1: can not overlap each other)
+;; CHANGED: AF, DE
+;; WARNINGS: 
+;;			- IX and IY must be valid ptrs. 
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_can_overlap_IX_IY:
+	ld a, manentity_y(ix) 								;; /
+	add manentity_h(ix) 								;; | If IX lower point < IY upper point: can not overlap, so ret, else: next check
+	dec a 												;; |
+	sub manentity_y(iy) 								;; |
+	ret m 												;; \
+
+	ld a, manentity_y(iy) 								;; /
+	sub manentity_y(ix) 								;; | If IY upper point < IX upper point: can not overlap, so ret, else: check in X axis
+	ret m 												;; \
+
+	;; Check for possible collision on the X axis after collision in Y (only possible when entity is created first time, IX, and collision with old entity, IY)
+	ld a, manentity_x(iy) 								;; /
+	add manentity_w(iy) 								;; | If IY right point > IX left point : overlap in X axis, so ret,  
+	dec a 												;; | else: check vx of both entities
+	ld l, manentity_x(ix) 								;; |
+	sub l 				 								;; |
+	ret nc 												;; \
+
+	;; Y pos of IY is in range, so, check if IX is reacheble with IX (vx, position) and vx of IY (manentity_array_vx_bytes)
+	ld a, manentity_vx(ix) 								;; / If IX vx - IY vx <= 0: IX can't reach IY, else: check manentity_array_vx_bytes
+	cp manentity_vx(iy) 								;; \
+	ret m
+	ret z
+
+	ld de, #manentity_array_vx_bytes
+	neg 												;; / A = abs(vx) - 1 = index to get value of manentity_array_vx_bytes
+	dec a 												;; \
+
+	add e 												;; /
+	ld e, a 											;; | HL = ptr to min X position that IY must be at this moment so that IX can not reach IY with vx.
+	ld a, d 											;; |
+	adc #0 												;; |
+	ld d, a 											;; \
+	;IX 42f0 42 fe 
+	;IY 4309 41 fe
+	ld a, (de) 											;; /
+	ld d, a 											;; | If IY X position < *HL: can not overlap, else: will overlap at some point
+	ld a, manentity_x(iy) 								;; | 
+	sub d 												;; \ 
+	;ret m
+
+	ret

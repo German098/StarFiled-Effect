@@ -4,16 +4,14 @@
 .module Components_manager_H
 
 ;;
-;; GLOBAL TAGS
-;;
-.globl mancomponents_get_array_ptr
-
-;;
 ;; FUNCTION DECLARATIONS
 ;;
 
 .globl mancomponents_init
 .globl mancomponents_set_component_array
+.globl mancomponents_get_array_ptr
+.globl mancomponents_get_next_ptr
+.globl mancomponents_get_prev_ptr
 .globl mancomponents_insert
 .globl mancomponents_sort
 

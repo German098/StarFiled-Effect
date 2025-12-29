@@ -3,14 +3,14 @@
 ;;
 ;; CONSTANTS
 ;;
-manentity_num_entities 		    = 6
+manentity_num_entities 		    = 2
 manentity_num_bytes 		    = manentity_num_entities * manentity_size
 manentity_max_entities_to_destroy = 4
 
 ;; X distance to travel in bytes
 manentity_distance_X = 78
 
-;; Values of component vx
+;; Absolute values of component vx
 manentity_cmp_vx_0 = 1
 manentity_cmp_vx_1 = 2
 manentity_cmp_vx_2 = 3
