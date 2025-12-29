@@ -63,6 +63,77 @@ mancomponents_get_array_ptr::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; Get next ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
+;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
+;; OUTPUTS: Zero flag (1: ret invalid ptrs: 0x0000, 0: valid next ptr of _components_array), IY (ptr of manentity_array)
+;; CHANGED: AF, DE, BC, IY
+;; WARNING:
+;;		- HL should be a valid ptr of _components_array.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+mancomponents_get_next_ptr::
+	ld c, a 
+
+	inc de 												;; /
+	inc de 												;; |
+	ld a, (de) 												;; | 
+	ld b, a 												;; | DE = next ptr of _components_array + 1
+	ld__iyl_a 												;; | IY = ptr of next entity respect (DE + 2)
+	inc de 												;; |
+	ld a, (de) 												;; |
+	ld__iyh_a 												;; |
+	or b 													;; \
+	ret z  												;; If DE == 0x0000: end of _components_array, so ret, else: check cmps 
+
+	ld a, c
+	and manentity_cmps(iy) 
+	sub c
+	jr nz, mancomponents_get_next_ptr 								;; If cmps of IY != A: check next ptr, else: ret 
+
+	inc a 												;; Force to reset Zero flag
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Get prev ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
+;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
+;; OUTPUTS: Zero flag (1: ret invalid ptrs: 0x0000, 0: valid prev ptr of _components_array), IY (respected ptr of manentity_array)
+;; CHANGED: AF, DE, BC, IY
+;; WARNING:
+;;		- HL should be a valid ptr of _components_array.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+mancomponents_get_prev_ptr::
+	ld c, a 
+
+	call mancomponents_get_array_ptr
+
+	dec de 									;; /
+	ld a, (de) 									;; |
+	ld__iyh_a 									;; |
+	dec de 									;; | DE = prev ptr of _components_array
+	ld a, (de) 									;; | IY = ptr of prev entity respect (DE - 2)
+	ld__iyl_a 									;; |
+	cp (hl) 									;; |
+	jr nz, mancomponents_get_prev_ptr_continue 			;; |
+	inc hl 									;; |
+ 	ld__a_iyh 									;; |
+ 	cp (hl) 									;; \
+	ret z 									;; If DE == next ptr to be inserted: ret, else: check cmps 
+
+	mancomponents_get_prev_ptr_continue:
+	 ld a, c
+	 and manentity_cmps(iy) 
+	 sub c
+	jr nz, mancomponents_get_prev_ptr 								;; If cmps of IY != A: check next ptr, else: ret 
+
+	inc a 												;; Force to reset Zero flag
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;; Set number array of components to insert or delete a ptr.
 ;; INPUTS: A (Ath array of _components_array)
 ;; OUTPUTS: -
@@ -120,6 +191,7 @@ mancomponents_insert::
 ;;		- HL muest be a valid pointer of mancomponent_array_ptr.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+NO DEVUELVE DE CORRECTAMENTE, DEBBUGEANDO CON LA PRIMERA ENTIDAD ES SUFICIENTE VER QUE ESTÁ MAL
 mancomponents_sort::
 	ld d, h
 	ld e, l
