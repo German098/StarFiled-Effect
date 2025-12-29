@@ -191,7 +191,6 @@ mancomponents_insert::
 ;;		- HL muest be a valid pointer of mancomponent_array_ptr.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NO DEVUELVE DE CORRECTAMENTE, DEBBUGEANDO CON LA PRIMERA ENTIDAD ES SUFICIENTE VER QUE ESTÁ MAL
 mancomponents_sort::
 	ld d, h
 	ld e, l

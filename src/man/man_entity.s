@@ -163,7 +163,11 @@ manentity_refresh:
 	
 	call manentity_can_overlap_IX_IY
 	jr z, manentity_create_check_prev_ptr
-	jr nc, manentity_create_pseudo_random_value
+	jp m, manentity_create_check_prev_ptr
+
+	 ;; No carry: generate new pseudo random value
+	 ld (_manentity_refresh_ptr_to_sort), hl 				;; HL = ptr in mancomponent_array_ptr to sort (with other Y and vx values)
+	jr manentity_create_pseudo_random_value  
 
 	manentity_create_check_prev_ptr:
 	 ld d, h
@@ -174,9 +178,13 @@ manentity_refresh:
 
 	call manentity_can_overlap_IX_IY
 	ret z
-	jr nc, manentity_create_pseudo_random_value
+	ret m
 
-	ret
+	 ;; No carry: generate new pseudo random value
+	 ld (_manentity_refresh_ptr_to_sort), hl 				;; HL = ptr in mancomponent_array_ptr to sort (with other Y and vx values)
+	jr manentity_create_pseudo_random_value  
+
+	;ret
 
 	manentity_create_random_vx:
 	call cpct_getRandom_xsp40_u8_asm
@@ -486,8 +494,8 @@ manentity_can_overlap_IX_IY:
 	ld a, manentity_x(iy) 								;; /
 	add manentity_w(iy) 								;; | If IY right point > IX left point : overlap in X axis, so ret,  
 	dec a 												;; | else: check vx of both entities
-	ld l, manentity_x(ix) 								;; |
-	sub l 				 								;; |
+	ld d, manentity_x(ix) 								;; |
+	sub d 				 								;; |
 	ret nc 												;; \
 
 	;; Y pos of IY is in range, so, check if IX is reacheble with IX (vx, position) and vx of IY (manentity_array_vx_bytes)
