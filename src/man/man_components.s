@@ -99,7 +99,7 @@ mancomponents_get_next_ptr::
 ;; Get prev ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
 ;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
 ;; OUTPUTS: Zero flag (1: ret invalid ptrs: 0x0000, 0: valid prev ptr of _components_array), IY (respected ptr of manentity_array)
-;; CHANGED: AF, DE, BC, IY
+;; CHANGED: AF, DE, BC, HL, IY
 ;; WARNING:
 ;;		- HL should be a valid ptr of _components_array.
 ;;
@@ -209,7 +209,7 @@ mancomponents_sort::
 
 	 ld a, manentity_y(iy)
 	 sub manentity_y(ix)
-	jp m, mancomponents_sort_update_counter
+	jr c, mancomponents_sort_update_counter
 
 	mancomponents_sort_left_side:
 	 ld a, b
@@ -237,7 +237,7 @@ mancomponents_sort::
 	mancomponents_sort_left_side_continue:
 	 ld a, manentity_y(iy)
 	 sub manentity_y(ix)
-	jp m, mancomponents_sort_transfer_bytes 
+	jr c, mancomponents_sort_transfer_bytes 
 
 	mancomponents_sort_update_counter:
 	 inc bc
