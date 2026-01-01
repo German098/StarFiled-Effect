@@ -24,7 +24,7 @@ manentity_destroy_bit = 0		;; Destroy/Not destroy
 manentity_cmp_alive_mask  = (1 << manentity_alive_bit)
 manentity_cmp_render_mask = (1 << manentity_render_bit)
 manentity_destroy_mask	  = (1 << manentity_destroy_bit)
-manentity_default_mask	  = 0xFF
+manentity_default_mask	  = 0x00
 
 ;; Composite masks
 manentity_cmp_star_mask    = (manentity_cmp_alive_mask | manentity_cmp_render_mask)

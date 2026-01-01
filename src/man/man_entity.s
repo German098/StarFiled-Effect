@@ -489,7 +489,7 @@ manentity_destroy:
 ;;
 ;; IX 42d1 67 fd 
 ;; IY 4317 19 fd
-;; 4317 1a 42df 33 42ed 5b 42fb 75 42d1 b4 4309 b8
+;; 42c5 07 42d3 18 42e1 2d 42fd 60 430b 74 42ef 42
 ;; 
 manentity_can_overlap_IX_IY:
 	;; Check colision between IX and IY (IX as reference)
