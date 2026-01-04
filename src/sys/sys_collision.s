@@ -30,7 +30,7 @@ syscollision_update::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; If IX entity is out of the left boundary: set for destruction.
+;; If IX entity is out of the left boundary: set for erase from second buffer.
 ;; INPUTS: IX (entity)
 ;; OUTPUTS: -
 ;; CHANGED: AF, HL, BC, IX, ?
@@ -45,6 +45,6 @@ syscollision_check_left_boundary::
 	ret
 
 	syscollision_check_left_boundary_is_out:
-	 jp manentity_set_for_destruction 
+	 jp manentity_set_for_erase 
 
 	;ret

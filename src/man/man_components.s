@@ -12,7 +12,7 @@ mancomponents_arrays_size = (manentity_num_entities + 1) * 2
 mancomponents_array:
 	;; Array component position
 	.ds mancomponents_arrays_size		;; / Array = [ptr to next ptr entity to insert, 0x????, ..., 0x????, 0x0000]
-	.dw 0x0000					;; \
+	.dw 0x0000							;; \
 mancomponents_array_end:
 ;; Ptr to current array of _components_array to operate with
 mancomponent_array_ptr:
@@ -65,7 +65,7 @@ mancomponents_get_array_ptr::
 ;;
 ;; Get next ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
 ;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
-;; OUTPUTS: Zero flag (1: ret invalid ptrs: 0x0000, 0: valid next ptr of _components_array), IY (ptr of manentity_array), DE (getted ptr of _components_array)
+;; OUTPUTS: Zero flag (1: ret invalid ptrs, so 0x0000, 0: valid next ptr of _components_array), IY (ptr of manentity_array), DE (getted ptr of _components_array)
 ;; CHANGED: AF, DE, IY
 ;; WARNING:
 ;;		- HL should be a valid ptr of _components_array.
@@ -74,26 +74,27 @@ mancomponents_get_array_ptr::
 mancomponents_get_next_ptr::
 	ld (_mancomponents_get_next_ptr_cmp_mask), a 
 
-	inc de 									;; /
-	inc de 									;; |
-	ld a, (de) 									;; | 
-	ld (_mancomponents_get_next_ptr_low_byte), a 			;; | DE = next ptr of _components_array + 1
-	ld__iyl_a 									;; | IY = ptr of next entity respect (DE + 2)
-	inc de 									;; |
-	ld a, (de) 									;; |
-	ld__iyh_a 	 								;; |
-	_mancomponents_get_next_ptr_low_byte=.+1				;; |
-	or #0x00 									;; \
-	ret z  									;; If DE == 0x0000: end of _components_array, so ret, else: check cmps 
+	inc de 					
+	mancomponents_get_next_ptr_loop:								
+	 inc de 													;; /
+	 ld a, (de) 												;; | 
+	 ld (_mancomponents_get_next_ptr_low_byte), a 				;; | DE = next ptr of _components_array + 1
+	 ld__iyl_a 													;; | IY = ptr of next entity respect (DE + 2)
+	 inc de 													;; |
+	 ld a, (de) 												;; |
+	 ld__iyh_a 	 												;; |
+	 _mancomponents_get_next_ptr_low_byte=.+1					;; |
+	 or #0x00 													;; \
+	ret z  														;; If DE == 0x0000: end of _components_array, so ret, else: check cmps 
 
-	ld a, (_mancomponents_get_next_ptr_cmp_mask)
-	and manentity_cmps(iy) 
-	_mancomponents_get_next_ptr_cmp_mask=.+1
-	sub #0x00
-	jr nz, mancomponents_get_next_ptr 					;; If cmps of IY != A: check next ptr, else: ret 
+	 ld a, (_mancomponents_get_next_ptr_cmp_mask)
+	 and manentity_cmps(iy) 
+	 _mancomponents_get_next_ptr_cmp_mask=.+1
+	 sub #0x00
+	jr nz, mancomponents_get_next_ptr_loop 						;; If cmps of IY != A: check next ptr, else: ret 
 
-	dec de 									;; DE = Next ptr with respect to DE input
-	inc a 									;; Force to reset Zero flag
+	 dec de 													;; DE = Next ptr with respect to DE input
+	 inc a 														;; Force to reset Zero flag
 
 	ret
 
@@ -101,7 +102,7 @@ mancomponents_get_next_ptr::
 ;;
 ;; Get prev ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
 ;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
-;; OUTPUTS: Zero flag (1: ret invalid ptrs: 0x0000, 0: valid prev ptr of _components_array), IY (respected ptr of manentity_array)
+;; OUTPUTS: Zero flag (1: ret invalid ptrs, so ptr to next ptr entity to insert, 0: valid prev ptr of _components_array), IY (ptr of manentity_array)
 ;; CHANGED: AF, DE, HL, IY
 ;; WARNING:
 ;;		- HL should be a valid ptr of _components_array.
@@ -110,29 +111,30 @@ mancomponents_get_next_ptr::
 mancomponents_get_prev_ptr::
 	ld (_mancomponents_get_prev_ptr_cmp_mask), a 
 
+	mancomponents_get_prev_ptr_loop:
 	call mancomponents_get_array_ptr
 
-	dec de 									;; /
-	ld a, (de) 									;; |
-	ld__iyh_a 									;; |
-	dec de 									;; | DE = prev ptr of _components_array
-	ld a, (de) 									;; | IY = ptr of prev entity respect (DE - 2)
-	ld__iyl_a 									;; |
-	cp (hl) 									;; |
-	jr nz, mancomponents_get_prev_ptr_continue 			;; |
-	inc hl 									;; |
- 	ld__a_iyh 									;; |
- 	cp (hl) 									;; \
-	ret z 									;; If DE == next ptr to be inserted: ret, else: check cmps 
+	 dec de 										;; /
+	 ld a, (de) 									;; |
+	 ld__iyh_a 										;; |
+	 dec de 										;; | DE = prev ptr of _components_array
+	 ld a, (de) 									;; | IY = ptr of prev entity respect (DE - 2)
+	 ld__iyl_a 										;; |
+	 cp (hl) 										;; |
+	jr nz, mancomponents_get_prev_ptr_continue  	;; |
+	 inc hl 										;; |
+ 	 ld__a_iyh 										;; |
+ 	 cp (hl) 										;; \
+	ret z 											;; If DE == next ptr to be inserted: ret, else: check cmps 
 
 	mancomponents_get_prev_ptr_continue:
 	 ld a, (_mancomponents_get_prev_ptr_cmp_mask)
 	 and manentity_cmps(iy)
 	 _mancomponents_get_prev_ptr_cmp_mask=.+1 
 	 sub #0x00
-	jr nz, mancomponents_get_prev_ptr 					;; If cmps of IY != A: check next ptr, else: ret 
+	jr nz, mancomponents_get_prev_ptr_loop 			;; If cmps of IY != A: check next ptr, else: ret 
 
-	inc a 									;; Force to reset Zero flag
+	inc a 											;; Force to reset Zero flag
 
 	ret
 
@@ -220,6 +222,7 @@ mancomponents_sort::
 	set 7, b 								;; 4th bit of B = 1: checking left side of current DE ptr
 	;; Check left side
 	mancomponents_sort_check_left_side:
+	 ld a, #manentity_default_mask
 	call mancomponents_get_prev_ptr
 	jr z, mancomponents_sort_transfer_bytes
 

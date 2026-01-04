@@ -5,3 +5,4 @@
 ;;
 .globl sysrender_init
 .globl sysrender_update
+.globl sysrender_switch_buffers

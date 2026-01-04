@@ -17,14 +17,17 @@
 ;3 4
 
 manentity_default:
-	.db #manentity_cmp_star_mask		;; cmps
-	.db #manentity_distance_X, 0 		;; [x, y]
-	.db 2, 6 							;; [w, h] (bytes)
-	.db 0 								;; vx
-	.dw 0x0000 							;; last video ptr
-	.dw _star_animation					;; anim ptr
-	.dw _sp_star_0						;; prev star sprite used
-	.dw _sp_star_0						;; star current sprite
+	.db #manentity_cmp_star_mask							;; cmps
+	.db #manentity_distance_X, 0 							;; [x, y]
+	.db #manentity_star_width, #manentity_star_height 		;; [w, h] (bytes)
+	.db 0 													;; vx
+	.dw 0x0000 												;; last front video ptr
+	.dw 0x0000 												;; last back video ptr
+	.dw _star_animation										;; anim ptr
+	.dw _sp_star_0											;; front prev star sprite used
+	.dw _sp_star_0											;; back prev star sprite used
+	.dw _sp_star_0											;; star current sprite
+	.db #manentity_fps_anim									;; frames counter for animations
 
 ;; Entities array
 manentity_array::
@@ -92,6 +95,7 @@ manentity_create::
 ;;	- DE ptr to entity must exists in the array.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 4391 0f 43a3 4d 4349 5d 436d 74 437f 8e 435b 9f
 manentity_refresh:
 	ld (_manentity_refresh_ptr_to_sort), bc
 
@@ -127,18 +131,35 @@ manentity_refresh:
 
 	jp manentity_create_random_vx
 
+	;; 199, c7 => 1100 0111
+	;; 198, c6 => 1100 0110
+	;; 197, c5 => 1100 0101
+	;; 196, c4 => 1100 0100
+	;; 195, c3 => 1100 0011
+	;; 194, c2 => 1100 0010
+	;; 193, c1 => 1100 0001
 	manentity_create_345_bits_num_random:
 	 ld a, l
 	 and #0b00111000
 	 ;; If (A 3th | A 4th | A 5th) == 0: A = [192, 199] so save value, else: set 7th to 0 (A < 128)
 	jr nz, manentity_create_downgrade_random_value
-	jp manentity_create_set_Y_random_value
+	jp manentity_create_check_Y_random_value
 
 	manentity_create_downgrade_random_value:
 	 res 7, l
+	jr manentity_create_set_Y_random_value
+	 
+	manentity_create_check_Y_random_value:
+	 ld a, #manentity_max_Y_pos
+	 sub l
+	jr c, manentity_create_set_max_Y_value
+	jr manentity_create_set_Y_random_value
+
+	manentity_create_set_max_Y_value:
+	 ld l, #manentity_max_Y_pos
 
 	manentity_create_set_Y_random_value:
-	ld manentity_y(ix), l
+	 ld manentity_y(ix), l
 
 	manentity_create_set_random_vx:
 	 ;; Get Vx value in range (Vx => 0000 0001, 0000 0011)
@@ -175,16 +196,35 @@ manentity_refresh:
 	 push hl
 	call mancomponents_get_prev_ptr
 	 pop hl
-	ret z
+	jr nz, manentity_create_check_prev_ptr_overlap
+	 ld hl, (_manentity_refresh_ptr_to_sort)
+	 ld (_manentity_change_ptr), hl
 
+	ret 
+
+	manentity_create_check_prev_ptr_overlap:
 	call manentity_can_overlap_IX_IY
-	ret c
+	jr c, manentity_create_check_HL_ptr
 
 	 ;; No carry: generate new pseudo random value
 	 ld (_manentity_refresh_ptr_to_sort), hl 				;; HL = ptr in mancomponent_array_ptr to sort (with other Y and vx values)
 	jr manentity_create_pseudo_random_value  
 
-	;ret
+	manentity_create_check_HL_ptr:
+	 ld de, (_manentity_refresh_ptr_to_sort)
+	 ld a, d
+	 cp h
+	jr c, manentity_create_update_HL_ptr
+	ret nz
+	 ld a, e
+	 cp l
+	jr c, manentity_create_update_HL_ptr
+	ret
+
+	manentity_create_update_HL_ptr:
+	 ld (_manentity_change_ptr), de
+
+	ret
 
 	manentity_create_random_vx:
 	call cpct_getRandom_xsp40_u8_asm
@@ -214,6 +254,28 @@ manentity_add_A_entities::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; Swap back and front prevsprite_ptr.
+;; INPUTS: IX (entity ptr)
+;; OUTPUTS: -
+;; CHANGED: A, B
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_swap_back_front_ptrs::
+	ld a, manentity_lprevspritef_ptr(ix)
+	ld b, manentity_lprevspriteb_ptr(ix)
+	ld manentity_lprevspritef_ptr(ix), b
+	ld manentity_lprevspriteb_ptr(ix), a
+
+	ld a, manentity_hprevspritef_ptr(ix)
+	ld b, manentity_hprevspriteb_ptr(ix)
+	ld manentity_hprevspritef_ptr(ix), b
+	ld manentity_hprevspriteb_ptr(ix), a
+
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;; Set entity for destruction
 ;; INPUTS: IX (entity to destroy)
 ;; OUTPUTS: -
@@ -222,15 +284,14 @@ manentity_add_A_entities::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_set_for_destruction::
-	ld a, #(manentity_cmp_alive_mask | manentity_destroy_mask)
-	xor manentity_cmps(ix) 
-	ld manentity_cmps(ix), a 									;; A = dead entity but renderizable yet
+	ld a, #manentity_cmp_dead_mask
+	ld manentity_cmps(ix), a 									;; A = dead entity
 
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Set entity to no rederizable.
+;; Set entity to erase star in next frame (from double buffer)
 ;; INPUTS: IX (entity)
 ;; OUTPUTS: -
 ;; CHANGED: AF
@@ -238,12 +299,26 @@ manentity_set_for_destruction::
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_set_to_no_renderizable::
-	ld a, #manentity_cmp_render_mask
-	xor manentity_cmps(ix)
+	ld a, #manentity_cmp_star_last_frame_mask 					;; A = not alive star and only render to erase from double buffer
 	ld manentity_cmps(ix), a
 
 	ret
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Set entity for erase (of the second buffer)
+;; INPUTS: IX (entity to destroy)
+;; OUTPUTS: -
+;; CHANGED: AF
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+manentity_set_for_erase::
+	ld a, #manentity_cmp_alive_mask
+	xor manentity_cmps(ix) 
+	ld manentity_cmps(ix), a 									;; A = dead entity but renderizable yet
+
+	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -304,7 +379,7 @@ manentity_set_to_no_renderizable::
 ;; Iterate array of ptrs and call function DE for each one
 ;; ENTRADAS: HL (array of _components_array), DE (ptr call function), A (component entity mask)
 ;; SALIDAS: -
-;; ALTERADOS: HL, AF, D
+;; ALTERADOS: HL, AF, D, ?
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
 manentity_forall_ptr::
@@ -313,6 +388,8 @@ manentity_forall_ptr::
 
 	xor a
 	ld (_manentity_break_forall), a 		;; If value of pos _manentity_break_forall != 0: force to break for loop, else: continue
+	ld (_manentity_change_ptr), a
+	ld (_manentity_change_ptr + 1), a
 
 	inc hl 									;; / HL = first ptr of _components_array
 	inc hl 									;; \
@@ -340,10 +417,21 @@ manentity_forall_ptr::
 	 pop hl
 
 	 ;; Check break
-	 _manentity_break_forall=.+1
+	 _manentity_break_forall = .+1
 	 ld a, #0x00
 	 or #0
 	ret nz 
+
+	 ;; Change HL value (next ptr in the ptr array)
+	 _manentity_change_ptr = .+1
+	 ld de, #0x0000
+	 ld a, d
+	 or e
+	jr z, entityman_forall_ptr_loop
+	 ex de, hl 
+	 xor a
+	 ld (_manentity_change_ptr), a
+	 ld (_manentity_change_ptr + 1), a
 
 	jp entityman_forall_ptr_loop
 
@@ -360,7 +448,7 @@ manentity_forall_ptr::
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_update::
 	call manentity_set_destroy_func_values 			;; Set value of num entities to delete in manentity_destroy function
-	ld a, #manentity_destroy_mask
+	ld a, #manentity_cmp_dead_mask
 	ld de, #manentity_destroy
 	call mancomponents_get_array_ptr
 	jp manentity_forall_ptr

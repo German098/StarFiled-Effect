@@ -7,6 +7,14 @@
 .include "../assets/assets.h.s"
 
 ;;
+;; PRIVATE VARIABLES
+;;
+sysrender_front_buffer:
+	.db 0xc0
+sysrender_back_buffer:
+	.db 0x80
+
+;;
 ;; PUBLIC FUNCTIONS
 ;;
 
@@ -28,12 +36,66 @@ sysrender_init::
 	ld de, #16							;; Palette number of colors
 	call cpct_setPalette_asm
 
+	call sysrender_clear_back_buffer 	;; Set bytes of back buffer to 0x00
+
 	ret
 
+;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Switch back and front buffers (sysrender_front_buffer and sysrender_back_buffer variables) and value of register R12 from CRTC.
+;; This register is the responsible for holding the 6 MSb (most significant bits) of the place where Video Memory starts (its page).
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: AF, BC, HL
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;
+sysrender_switch_buffers::
+	ld a, (sysrender_back_buffer)
+	ld b, a
+	ld a, (sysrender_front_buffer)
+	ld (sysrender_back_buffer), a
+	ld a, b
+	ld (sysrender_front_buffer), a
+
+	srl b
+	srl b
+	ld l, b 								;; L = new starting page for video memory (6 significatns bits of byte)
+	call cpct_setVideoMemoryPage_asm
+
+	ld a, #manentity_cmp_render_mask
+	ld de, #manentity_swap_back_front_ptrs
+	call mancomponents_get_array_ptr
+	jp manentity_forall_ptr
+
+	;ret
 
 ;;
 ;; PRIVATE FUNCTIONS
 ;;
+
+;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Set all bytes of current back buffer = 0x00
+;; INPUTS: -
+;; OUTPUTS: -
+;; CHANGED: HL, DE, BC
+;; WARNING: -
+;;
+;;;;;;;;;;;;;;;;;;;;;
+sysrender_clear_back_buffer:
+	;; cpct_memset_f64
+	ld a, (sysrender_back_buffer)
+	ld h, a
+	ld l, #0
+	ld d, h
+	ld e, #1
+	ld (hl), #0 
+	ld bc, #0x4000 - 1
+
+	ldir
+
+	ret
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -44,40 +106,70 @@ sysrender_init::
 ;; WARNING: -
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
-rendersys_draw_entity:
-	xor a
-	cp manentity_last_videol_ptr(ix)
-	jr nz, rendersys_draw_entity_continue
-	cp manentity_last_videoh_ptr(ix)
-	jr z, rendersys_draw_entity_get_screen_ptr
+sysrender_draw_entity:
+	ld a, #manentity_cmp_erase_render_mask
+	and manentity_cmps(ix)
+	jr z, sysrender_draw_entity_init
 
-	rendersys_draw_entity_continue:
-	 ;; Erase
+    ;; Erase sprite of back buffer
+	ld d, manentity_last_bvideoh_ptr(ix)
+	ld e, manentity_last_bvideol_ptr(ix)
+	ld h, manentity_hprevspriteb_ptr(ix)
+	ld l, manentity_lprevspriteb_ptr(ix)
+	ld b, manentity_w(ix)
+	ld c, manentity_h(ix)
+	call sysrender_draw_XOR_entity
 
-	 ;; Only a byte
-	 ;ld h, manentity_last_videoh_ptr(ix)
-	 ;ld l, manentity_last_videol_ptr(ix)
-	 ;ld a, (hl)
-	 ;xor manentity_color(ix)
-	 ;ld (hl), a
+	jp manentity_set_for_destruction
 
-	 ;; A sprite
-	 ld h, manentity_hprevsprite_ptr(ix)
-	 ld l, manentity_lprevsprite_ptr(ix)
-	 ld d, manentity_last_videoh_ptr(ix)
-	 ld e, manentity_last_videol_ptr(ix)
+	sysrender_draw_entity_init: 
+	 xor a
+	 cp manentity_last_bvideol_ptr(ix)
+	jr nz, sysrender_draw_entity_continue
+	 cp manentity_last_bvideoh_ptr(ix)
+	jr z, sysrender_draw_entity_get_screen_ptr
+
+	sysrender_draw_entity_continue:
+	 ;; Erase a sprite of front buffer
+	 ld d, manentity_last_fvideoh_ptr(ix)
+	 ld e, manentity_last_fvideol_ptr(ix)
+	 ld a, d
+	 or e
+	jr z, sysrender_draw_entity_check_entity_cmps 
+	 ld h, manentity_hprevspriteb_ptr(ix)
+	 ld l, manentity_lprevspriteb_ptr(ix)
 	 ld b, manentity_w(ix)
 	 ld c, manentity_h(ix)
-	call rendersys_draw_XOR_entity
+	call sysrender_draw_XOR_entity
 
+	sysrender_draw_entity_check_entity_cmps:
 	 ld a, #manentity_cmp_alive_mask
 	 and manentity_cmps(ix)
-	jr nz, rendersys_draw_entity_calculate_ptr
+	jr nz, sysrender_draw_entity_calculate_ptr
+
 	jp manentity_set_to_no_renderizable
 
-	rendersys_draw_entity_calculate_ptr:
-	 ld h, manentity_last_videoh_ptr(ix) 
-	 ld l, manentity_last_videol_ptr(ix) 
+	sysrender_draw_entity_calculate_ptr:
+	 ;; Current value of manentity_last_video_ptr = ptr video memory in front buffer, so calculate proper position in back buffer
+	 ld a, (sysrender_front_buffer)
+	 ld b, a
+	 ld a, (sysrender_back_buffer)
+	 cp b
+	 ld a, manentity_last_bvideoh_ptr(ix)
+	 ld manentity_last_fvideoh_ptr(ix), a				;; Update high byte of font video ptr value (to erase in next iteration of render loop)
+	jr nc, sysrender_draw_entity_add_buffer_ptr
+
+	 sub #0x40
+	jr sysrender_draw_entity_update_last_video_ptr
+
+	sysrender_draw_entity_add_buffer_ptr:
+	 add #0x40
+
+	sysrender_draw_entity_update_last_video_ptr:
+	 ld h, a
+	 ;ld h, manentity_last_bvideoh_ptr(ix)
+	 ld l, manentity_last_bvideol_ptr(ix)
+	 ld manentity_last_fvideol_ptr(ix), l				;; Update low byte of font video ptr value (to erase in next iteration of render loop)
 	 ld a, manentity_vx(ix)
 
 	 ;; Substract current vx to current star position (to draw it in new position of screen)
@@ -88,32 +180,28 @@ rendersys_draw_entity:
 	 sbc #0
 	 ld h, a
 
-	jp rendersys_draw_entity_draw_new_position
+	jp sysrender_draw_entity_draw_new_position
 
-	rendersys_draw_entity_get_screen_ptr:
-	 ld de, #0xc000								;; Start of the video memory where calculations are made 
+	sysrender_draw_entity_get_screen_ptr:
+	 ld a, (sysrender_back_buffer)				;; / 
+	 ld d, a 									;; | Start of the video memory where calculations are made 
+	 ld e, #0									;; \
 	 ld c, manentity_x(ix)						;; C = X
 	 ld b, manentity_y(ix)						;; B = Y  
 	call cpct_getScreenPtr_asm					;; HL = screen pointer where draw IX entity
 
-	rendersys_draw_entity_draw_new_position:
-	 ld manentity_last_videoh_ptr(ix), h
-	 ld manentity_last_videol_ptr(ix), l
+	sysrender_draw_entity_draw_new_position:
+	 ld manentity_last_bvideoh_ptr(ix), h
+	 ld manentity_last_bvideol_ptr(ix), l
 
-	 ;; Draw
-	 ;; Only a byte
-	 ;ld a, (hl)
-	 ;xor manentity_color(ix)
-	 ;ld (hl), a
-
-	 ;; A sprite
+	 ;; Draw a sprite
 	 ld d, h
 	 ld e, l
 	 ld h, manentity_hsprite_ptr(ix)
 	 ld l, manentity_lsprite_ptr(ix)
 	 ld b, manentity_w(ix)
 	 ld c, manentity_h(ix)
-	jp rendersys_draw_XOR_entity 
+	jp sysrender_draw_XOR_entity 
 
 	;ret
 
@@ -126,24 +214,24 @@ rendersys_draw_entity:
 ;; WARNING: -
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
-rendersys_draw_XOR_entity:
+sysrender_draw_XOR_entity:
 	push ix 									;; [2 | 5] Save IX register
 	ld__ixl_b									;; [2 | 2] IXL = B (width)
 
-	rendersys_XOR_entity_main_loop:
+	sysrender_XOR_entity_main_loop:
 	 push de									;; [1 | 4] Save DE (address memory to draw)
 
-	rendersys_XOR_entity_row_loop:
+	sysrender_XOR_entity_row_loop:
 	 ld a, (de) 								;; [1 | 2] If is "erase mode", content of DE address memory = 0x00, else, the previous color of entity
 	 xor (hl)									;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == sprite color, so res = back color
 	 inc hl										;; [1 | 2] Next sprite byte color
 	 ld (de), a 								;; [1 | 2] Update byte color of DE addres memory
 	 inc de 									;; [1 | 2] Next byte of video memory address to draw
 
- 	djnz rendersys_XOR_entity_row_loop			;; [3/4 | 2] If B != 0, blending operation on the next byte 
+ 	djnz sysrender_XOR_entity_row_loop			;; [3/4 | 2] If B != 0, blending operation on the next byte 
  	 pop de										;; [1 | 3] DE = destination address video memory to draw
  	 dec c 										;; [1 | 1] 
- 	jr z, rendersys_draw_XOR_entity_end			;; [2 | 3/2]
+ 	jr z, sysrender_draw_XOR_entity_end			;; [2 | 3/2]
 
  	 ld__b_ixl									;; [2 | 2] B = entity width
  	 ld a, #0x08								;; [2 | 2] We add 0x0800 to destination pointer to get next byte line of current character
@@ -151,7 +239,7 @@ rendersys_draw_XOR_entity:
 
  	 ld d, a 									;; [1 | 1]
  	 and #0x38 									;; [2 | 2] / If any bit from 13, 12, 11 (weights) is not 0: we are still inside video memory boundaries, so proceed 
- 	jr nz, rendersys_XOR_entity_main_loop		;; [2 | 3/2] \ with next bytes line
+ 	jr nz, sysrender_XOR_entity_main_loop		;; [2 | 3/2] \ with next bytes line
 
  	 ;; Every 8 lines (1 character), we cross the 16K video memory boundaries, 8 * 2048k (0x800), and have to reposition destination pointer. 
  	 ;; That means our nextline is 16K-0x50 bytes back (to c0000) which is the same as advancing 48K(0xc0000)+0x50 = 0xC050 bytes, as memory is 64K 
@@ -162,9 +250,9 @@ rendersys_draw_XOR_entity:
  	 ld a, #0xc0								;; [2 | 2] / Add high byte to D and the carry flag
  	 adc d										;; [1 | 1] \
  	 ld d, a 									;; [1 | 1]
- 	jp rendersys_XOR_entity_main_loop			;; [3 | 3]
+ 	jp sysrender_XOR_entity_main_loop			;; [3 | 3]
 
- 	rendersys_draw_XOR_entity_end:
+ 	sysrender_draw_XOR_entity_end:
  	 pop ix 									;; [2 | 5] IX = current entity
 
 	ret											;; [1 | 3]
@@ -181,7 +269,7 @@ rendersys_draw_XOR_entity:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 sysrender_update::
 	ld a, #manentity_cmp_render_mask
-	ld de, #rendersys_draw_entity
+	ld de, #sysrender_draw_entity
 	call mancomponents_get_array_ptr
 	jp manentity_forall_ptr
 

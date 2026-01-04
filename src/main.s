@@ -45,6 +45,9 @@ cpct_waitNoVSYNC::
    ret
 
 _main::
+   ;; Change stack pointer (above the video memory buffer 0x8000)
+   ld sp, #0x8000    
+
    ;; Desactivamos el firmware para que no se ejecute su código en cada interrupción de la CPU (ninguna llamada que hagamos a paritr de aquí a funciones 
    ;; del firmware funcionará)
    call cpct_disableFirmware_asm
@@ -70,13 +73,16 @@ loop:
    call sysphysics_update
    cpctm_setBorder_asm HW_BLUE
    call manentity_update
+   cpctm_setBorder_asm HW_CYAN
+
+   call sysrender_switch_buffers
    cpctm_setBorder_asm HW_WHITE
 
-   ld d, #50
-   waitVSYNC_loop:
+   ;ld d, #50
+   ;waitVSYNC_loop:
    call cpct_waitVSYNC_asm
-   call cpct_waitNoVSYNC
-    dec d
-   jr nz, waitVSYNC_loop
+   ;call cpct_waitNoVSYNC
+   ; dec d
+   ;jr nz, waitVSYNC_loop
 
    jr    loop

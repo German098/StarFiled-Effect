@@ -19,19 +19,32 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
 animsys_change_sprite:
-	;; Update prev sprite ptr with current one (to "erase" sprite in render system)
-	ld a, manentity_lsprite_ptr(ix)
-	ld manentity_lprevsprite_ptr(ix), a
-	ld a, manentity_hsprite_ptr(ix)
-	ld manentity_hprevsprite_ptr(ix), a
+	ld a, manentity_fps_anim_ptr(ix)
+	or #0
+	jr z, animsys_change_sprite_continue
 
-	;; Change current sprite
-	ld h, manentity_hanim_ptr(ix)			;; / HL = current animation ptr
-	ld l, manentity_lanim_ptr(ix) 			;; \
-	xor a
-	ld b, manentity_vx(ix) 					;; B = vx (num of jumps of 2 bytes to reach next anim ptr)
-	sub b
-	ld b, a
+	dec a
+	ld manentity_fps_anim_ptr(ix), a
+
+	ret
+
+	animsys_change_sprite_continue:
+	 ld a, #manentity_fps_anim
+	 ld manentity_fps_anim_ptr(ix), a
+
+	 ;; Update prev sprite ptr with current one (to "erase" sprite in render system)
+	 ld a, manentity_lsprite_ptr(ix)
+	 ld manentity_lprevspriteb_ptr(ix), a
+	 ld a, manentity_hsprite_ptr(ix)
+	 ld manentity_hprevspriteb_ptr(ix), a
+
+	 ;; Change current sprite
+	 ld h, manentity_hanim_ptr(ix)			;; / HL = current animation ptr
+	 ld l, manentity_lanim_ptr(ix) 			;; \
+	 xor a
+	 ld b, manentity_vx(ix) 					;; B = vx (num of jumps of 2 bytes to reach next anim ptr)
+	 sub b
+	 ld b, a
 
 	animsys_change_sprite_update:
 	 ld a, #2
