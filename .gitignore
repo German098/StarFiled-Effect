@@ -1,2 +1,4 @@
 obj/
 src/assets/sprites/
+*.sna
+!StarfieldEffect.sna

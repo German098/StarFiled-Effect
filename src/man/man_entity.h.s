@@ -3,7 +3,7 @@
 ;;
 ;; CONSTANTS
 ;;
-manentity_num_entities 		    = 1
+manentity_num_entities 		    = 15
 manentity_num_bytes 		    = manentity_num_entities * manentity_size
 manentity_max_entities_to_destroy = 4
 
@@ -11,8 +11,8 @@ manentity_max_entities_to_destroy = 4
 manentity_star_width  = 2
 manentity_star_height = 6
 
-;; Frame counter for changing animations
-manentity_fps_anim    = 5 
+;; Frame counter for changing animations (0 = change sprite per frame)
+manentity_fps_anim    = 10
 
 ;; X distance to travel in bytes
 manentity_distance_X  = 78
@@ -55,13 +55,13 @@ manentity_last_bvideol_ptr = 8
 manentity_last_bvideoh_ptr = 9
 manentity_lanim_ptr = 10
 manentity_hanim_ptr = 11
-manentity_lprevspritef_ptr = 12
-manentity_hprevspritef_ptr = 13
-manentity_lprevspriteb_ptr = 14
-manentity_hprevspriteb_ptr = 15
-manentity_lsprite_ptr = 16
-manentity_hsprite_ptr = 17
-manentity_fps_anim_ptr = 18
+;manentity_lprevspritef_ptr = 12
+;manentity_hprevspritef_ptr = 13
+;manentity_lprevspriteb_ptr = 14
+;manentity_hprevspriteb_ptr = 15
+manentity_lsprite_ptr = 12
+manentity_hsprite_ptr = 13
+manentity_fps_anim_ptr = 14
 manentity_size = manentity_fps_anim_ptr + 1 
 
 ;;
@@ -80,4 +80,3 @@ manentity_size = manentity_fps_anim_ptr + 1
 .globl manentity_set_to_no_renderizable
 .globl manentity_set_for_erase
 .globl manentity_forall_ptr
-.globl manentity_swap_back_front_ptrs

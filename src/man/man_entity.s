@@ -24,8 +24,6 @@ manentity_default:
 	.dw 0x0000 												;; last front video ptr
 	.dw 0x0000 												;; last back video ptr
 	.dw _star_animation										;; anim ptr
-	.dw _sp_star_0											;; front prev star sprite used
-	.dw _sp_star_0											;; back prev star sprite used
 	.dw _sp_star_0											;; star current sprite
 	.db #manentity_fps_anim									;; frames counter for animations
 
@@ -261,18 +259,18 @@ manentity_add_A_entities::
 ;; WARNING: -
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-manentity_swap_back_front_ptrs::
-	ld a, manentity_lprevspritef_ptr(ix)
-	ld b, manentity_lprevspriteb_ptr(ix)
-	ld manentity_lprevspritef_ptr(ix), b
-	ld manentity_lprevspriteb_ptr(ix), a
-
-	ld a, manentity_hprevspritef_ptr(ix)
-	ld b, manentity_hprevspriteb_ptr(ix)
-	ld manentity_hprevspritef_ptr(ix), b
-	ld manentity_hprevspriteb_ptr(ix), a
-
-	ret
+;manentity_swap_back_front_ptrs::
+;	ld a, manentity_lprevspritef_ptr(ix)
+;	ld b, manentity_lprevspriteb_ptr(ix)
+;	ld manentity_lprevspritef_ptr(ix), b
+;	ld manentity_lprevspriteb_ptr(ix), a
+;
+;	ld a, manentity_hprevspritef_ptr(ix)
+;	ld b, manentity_hprevspriteb_ptr(ix)
+;	ld manentity_hprevspritef_ptr(ix), b
+;	ld manentity_hprevspriteb_ptr(ix), a
+;
+;	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

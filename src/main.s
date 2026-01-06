@@ -73,10 +73,9 @@ loop:
    call sysphysics_update
    cpctm_setBorder_asm HW_BLUE
    call manentity_update
-   cpctm_setBorder_asm HW_CYAN
+   cpctm_setBorder_asm HW_WHITE
 
    call sysrender_switch_buffers
-   cpctm_setBorder_asm HW_WHITE
 
    ;ld d, #50
    ;waitVSYNC_loop:

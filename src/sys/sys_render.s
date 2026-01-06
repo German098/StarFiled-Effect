@@ -61,12 +61,12 @@ sysrender_switch_buffers::
 	srl b
 	srl b
 	ld l, b 								;; L = new starting page for video memory (6 significatns bits of byte)
-	call cpct_setVideoMemoryPage_asm
+	jp cpct_setVideoMemoryPage_asm
 
-	ld a, #manentity_cmp_render_mask
-	ld de, #manentity_swap_back_front_ptrs
-	call mancomponents_get_array_ptr
-	jp manentity_forall_ptr
+	;ld a, #manentity_cmp_render_mask
+	;ld de, #manentity_swap_back_front_ptrs
+	;call mancomponents_get_array_ptr
+	;jp manentity_forall_ptr
 
 	;ret
 
@@ -114,10 +114,9 @@ sysrender_draw_entity:
     ;; Erase sprite of back buffer
 	ld d, manentity_last_bvideoh_ptr(ix)
 	ld e, manentity_last_bvideol_ptr(ix)
-	ld h, manentity_hprevspriteb_ptr(ix)
-	ld l, manentity_lprevspriteb_ptr(ix)
 	ld b, manentity_w(ix)
 	ld c, manentity_h(ix)
+	ld a, #1
 	call sysrender_draw_XOR_entity
 
 	jp manentity_set_for_destruction
@@ -136,10 +135,9 @@ sysrender_draw_entity:
 	 ld a, d
 	 or e
 	jr z, sysrender_draw_entity_check_entity_cmps 
-	 ld h, manentity_hprevspriteb_ptr(ix)
-	 ld l, manentity_lprevspriteb_ptr(ix)
 	 ld b, manentity_w(ix)
 	 ld c, manentity_h(ix)
+	 ld a, #1
 	call sysrender_draw_XOR_entity
 
 	sysrender_draw_entity_check_entity_cmps:
@@ -167,7 +165,6 @@ sysrender_draw_entity:
 
 	sysrender_draw_entity_update_last_video_ptr:
 	 ld h, a
-	 ;ld h, manentity_last_bvideoh_ptr(ix)
 	 ld l, manentity_last_bvideol_ptr(ix)
 	 ld manentity_last_fvideol_ptr(ix), l				;; Update low byte of font video ptr value (to erase in next iteration of render loop)
 	 ld a, manentity_vx(ix)
@@ -201,6 +198,7 @@ sysrender_draw_entity:
 	 ld l, manentity_lsprite_ptr(ix)
 	 ld b, manentity_w(ix)
 	 ld c, manentity_h(ix)
+	 xor a
 	jp sysrender_draw_XOR_entity 
 
 	;ret
@@ -209,6 +207,7 @@ sysrender_draw_entity:
 ;;
 ;; Draw or erase entity with XOR method
 ;; INPUTS: DE (destination addres video memory to draw), HL (sprite content address memory), B (entity width), C (entity height)
+;; A (0: normal draw, 1: draw with same bytes in video memory, so erase, current sprite)
 ;; OUTPUTS: -
 ;; CHANGED: HL, BC, DE, AF
 ;; WARNING: -
@@ -217,13 +216,21 @@ sysrender_draw_entity:
 sysrender_draw_XOR_entity:
 	push ix 									;; [2 | 5] Save IX register
 	ld__ixl_b									;; [2 | 2] IXL = B (width)
+	ld__ixh_a 									;; IXH = A (draw mode)
 
 	sysrender_XOR_entity_main_loop:
 	 push de									;; [1 | 4] Save DE (address memory to draw)
 
 	sysrender_XOR_entity_row_loop:
-	 ld a, (de) 								;; [1 | 2] If is "erase mode", content of DE address memory = 0x00, else, the previous color of entity
-	 xor (hl)									;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == sprite color, so res = back color
+	 xor a 											;; A = 0
+	 or__ixh 										;; / If A == 0: draw sprite in DE video memory, else: erase mode
+	jr z, sysrender_XOR_entity_row_loop_continue 	;; \
+	 ld h, d 										;; / HL (sprite) = DE (destination memory), so, erase mode
+	 ld l, e 										;; \
+
+	sysrender_XOR_entity_row_loop_continue:
+	 ld a, (de) 								;; [1 | 2] A = byte of DE video memory
+	 xor (hl)									;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == HL sprite color, so res = back color
 	 inc hl										;; [1 | 2] Next sprite byte color
 	 ld (de), a 								;; [1 | 2] Update byte color of DE addres memory
 	 inc de 									;; [1 | 2] Next byte of video memory address to draw

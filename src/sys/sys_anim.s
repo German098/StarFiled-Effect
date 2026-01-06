@@ -18,6 +18,10 @@
 ;;	- Component vx must be greater than 0.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
+;;
+;; SF = 4000 SB = 400c S = 400c
+;; (f849, 48 c0) (b84a, C0 C0)
+;; 		F  				B
 animsys_change_sprite:
 	ld a, manentity_fps_anim_ptr(ix)
 	or #0
@@ -34,9 +38,9 @@ animsys_change_sprite:
 
 	 ;; Update prev sprite ptr with current one (to "erase" sprite in render system)
 	 ld a, manentity_lsprite_ptr(ix)
-	 ld manentity_lprevspriteb_ptr(ix), a
+	 ;ld manentity_lprevspriteb_ptr(ix), a
 	 ld a, manentity_hsprite_ptr(ix)
-	 ld manentity_hprevspriteb_ptr(ix), a
+	 ;ld manentity_hprevspriteb_ptr(ix), a
 
 	 ;; Change current sprite
 	 ld h, manentity_hanim_ptr(ix)			;; / HL = current animation ptr
@@ -67,9 +71,11 @@ animsys_change_sprite:
 	 ld manentity_hanim_ptr(ix), h
 	 ld a, (hl)
 	 ld manentity_lsprite_ptr(ix), a
+	 ;ld manentity_lprevspriteb_ptr(ix), a
 	 inc hl
 	 ld a, (hl)
 	 ld manentity_hsprite_ptr(ix), a
+	 ;ld manentity_hprevspriteb_ptr(ix), a
 
 	ret
 
