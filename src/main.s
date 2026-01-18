@@ -44,6 +44,11 @@ cpct_waitNoVSYNC::
 
    ret
 
+;SCROLL
+;MACROS
+;"COLA" A LAS ESTRELLAS
+;...
+
 _main::
    ;; Change stack pointer (above the video memory buffer 0x8000)
    ld sp, #0x8000    

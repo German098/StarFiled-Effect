@@ -3,7 +3,7 @@
 ;;
 ;; CONSTANTS
 ;;
-manentity_num_entities 		    = 15
+manentity_num_entities 		    = 16
 manentity_num_bytes 		    = manentity_num_entities * manentity_size
 manentity_max_entities_to_destroy = 4
 

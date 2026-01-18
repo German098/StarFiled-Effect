@@ -63,7 +63,7 @@ mancomponents_get_array_ptr::
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; Get next ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
+;; Get next ptr in _components_array (with same A component) and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
 ;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
 ;; OUTPUTS: Zero flag (1: ret invalid ptrs, so 0x0000, 0: valid next ptr of _components_array), IY (ptr of manentity_array), DE (getted ptr of _components_array)
 ;; CHANGED: AF, DE, IY
@@ -102,7 +102,7 @@ mancomponents_get_next_ptr::
 ;;
 ;; Get prev ptr in _components_array and respected ptr of manentity_array depends on HL (otherwise return 0x0000).
 ;; INPUTS: DE (current ptr of _components_array), A (component entity mask)
-;; OUTPUTS: Zero flag (1: ret invalid ptrs, so ptr to next ptr entity to insert, 0: valid prev ptr of _components_array), IY (ptr of manentity_array)
+;; OUTPUTS: Zero flag (1: ret invalid ptrs, so ptr to next ptr entity to insert, 0: valid prev ptr of _components_array), IY (ptr of manentity_array), DE (getted ptr of _components_array)
 ;; CHANGED: AF, DE, HL, IY
 ;; WARNING:
 ;;		- HL should be a valid ptr of _components_array.

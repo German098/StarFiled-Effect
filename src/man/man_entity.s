@@ -51,7 +51,7 @@ manentity_array_vx_bytes:
 ;; OUTPUTS: -
 ;; CHANGED: -
 ;; WARNING: -
-;;
+;; 434b 34 6c ff [435a 4e 50 ff 4387 4c 70 ff] 4369 40 74 fe 433c 42 7a fd 4378 2e c2 fe
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 manentity_init::
 	;; Not neccesary!!!
@@ -93,9 +93,8 @@ manentity_create::
 ;;	- DE ptr to entity must exists in the array.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 4391 0f 43a3 4d 4349 5d 436d 74 437f 8e 435b 9f
 manentity_refresh:
-	ld (_manentity_refresh_ptr_to_sort), bc
+	ld (_manentity_refresh_ptr_to_sort), bc 
 
 	ld hl, #manentity_default
 	ld bc, #manentity_size
@@ -126,16 +125,8 @@ manentity_refresh:
  	 ;; If 6th bit of L == 0: L = 10xx xxxx = [128, 191] so save value, else: check 5, 4 and 3 bits of A
  	jr nz, manentity_create_345_bits_num_random
 	 ld manentity_y(ix), l
-
 	jp manentity_create_random_vx
 
-	;; 199, c7 => 1100 0111
-	;; 198, c6 => 1100 0110
-	;; 197, c5 => 1100 0101
-	;; 196, c4 => 1100 0100
-	;; 195, c3 => 1100 0011
-	;; 194, c2 => 1100 0010
-	;; 193, c1 => 1100 0001
 	manentity_create_345_bits_num_random:
 	 ld a, l
 	 and #0b00111000
@@ -174,52 +165,78 @@ manentity_refresh:
 	 ld hl, #0x0000
 	call mancomponents_sort
 
-	 ld h, d												;; / HL = DE
+	 ld h, d												;; / HL = DE (ptr of mancomponent_array_ptr sorted)
 	 ld l, e 												;; \
+	manentity_create_get_next_ptr:
 	 ld a, #manentity_cmp_star_mask
-	call mancomponents_get_next_ptr
-	jr z, manentity_create_check_prev_ptr
+	call mancomponents_get_next_ptr  						;; / If Zero flag == 0: there is no pointer on its right, so check left, else: check overlap
+	jr z, manentity_create_get_prev_ptr 					;; \
 	
+	push de
 	call manentity_can_overlap_IX_IY
-	jr c, manentity_create_check_prev_ptr
+	pop de
+	jr c, manentity_create_check_prev_ptr 					;; If Carry flag == 1, no overlap so check left ptr, else: overlap
 
 	 ;; No carry: generate new pseudo random value
 	 ld (_manentity_refresh_ptr_to_sort), hl 				;; HL = ptr in mancomponent_array_ptr to sort (with other Y and vx values)
 	jr manentity_create_pseudo_random_value  
 
-	manentity_create_check_prev_ptr:
+	manentity_create_check_prev_ptr: 
+	 ld a, b 												;; /
+	 or #0 													;; | If Zero flag == 0: there is not overlap in Y axis, so there is not overlap in prev entities ptr of array, else: 
+	jr nz, manentity_create_get_next_ptr 					;; \ check overlap between IX and prev IY of DE ptr
+
+	manentity_create_get_prev_ptr:
 	 ld d, h
 	 ld e, l
+	manentity_create_get_prev_ptr_2:
 	 ld a, #manentity_cmp_star_mask
 	 push hl
-	call mancomponents_get_prev_ptr
+	call mancomponents_get_prev_ptr 					
 	 pop hl
-	jr nz, manentity_create_check_prev_ptr_overlap
+	jr nz, manentity_create_check_prev_ptr_overlap 			;; If Zero flag == 0: there is no pointer on its left, so , else: check overlap
 	 ld hl, (_manentity_refresh_ptr_to_sort)
 	 ld (_manentity_change_ptr), hl
 
 	ret 
 
 	manentity_create_check_prev_ptr_overlap:
+	push de
 	call manentity_can_overlap_IX_IY
-	jr c, manentity_create_check_HL_ptr
+	pop de
+	jr c, manentity_create_check_HL_ptr 					;; / If Carry flag == 1, no overlap so check left ptr, else: check if DE == HL: DE is first ptr of mancomponent_array_ptr so 
+															;; \ ret, else: 
 
 	 ;; No carry: generate new pseudo random value
 	 ld (_manentity_refresh_ptr_to_sort), hl 				;; HL = ptr in mancomponent_array_ptr to sort (with other Y and vx values)
 	jr manentity_create_pseudo_random_value  
 
 	manentity_create_check_HL_ptr:
+	 ld a, b
+	 or #0
+	jr nz, manentity_create_get_prev_ptr_2
+
+	 ;; HL = ptr to current ptr of mancomponent_array_ptr sorted
+	 ;; DE = ptr to current ptr of mancomponent_array_ptr before call mancomponents_sort function
+	 ;; If DE == HL: ptr entity is at the same position prev to sort it, so ret, else: its position is different to initial one, so there is another entity ptr on it therefore 
+	 ;; _manentity_change_ptr = DE (so that manentity_forall_ptr does not continue incrementing to next ptr but keeps the same one, because it has another entity ptr value)
 	 ld de, (_manentity_refresh_ptr_to_sort)
 	 ld a, d
 	 cp h
 	jr c, manentity_create_update_HL_ptr
-	ret nz
+	ret nz 										;; / If D - H != 0 (D > H): _manentity_refresh_ptr_to_sort contains a ptr previously checked (it was  on the left side of sorted ptr), so
+												;; \ ret, else: check low byte
 	 ld a, e
 	 cp l
 	jr c, manentity_create_update_HL_ptr
+
 	ret
 
 	manentity_create_update_HL_ptr:
+	 ld a, b
+	 or #0
+	jr nz, manentity_create_get_prev_ptr_2
+
 	 ld (_manentity_change_ptr), de
 
 	ret
@@ -559,8 +576,8 @@ manentity_destroy:
 ;;
 ;; Check whether IX and IY can overlap at any point of screen travel or not.
 ;; INPUTS: IX (ptr entity 1), IY (ptr entity 2)
-;; OUTPUTS: Carry Flag (0: can overlap in some point, 1: can not overlap each other)
-;; CHANGED: AF, DE
+;; OUTPUTS: Carry Flag (0: can overlap in some point, 1: can not overlap each other), B (0: there is not overlap in Y axis between IX and IY entities, 1: there is overlap)
+;; CHANGED: AF, DE, B
 ;; WARNINGS: 
 ;;			- IX and IY must be valid ptrs. 
 ;;
@@ -577,7 +594,10 @@ manentity_destroy:
 ;; IY 4317 19 fd
 ;; 42c5 07 42d3 18 42e1 2d 42fd 60 430b 74 42ef 42
 ;; 
+;; 8D43 21 08 fd 6F43 05 0e ff AB43 01 68 ff 6043 0e 6d ff 4243 2a 70 fe 7E43 48 7c fe 5143 04 7c ff BA43 4e 7e fd 9C43 2a a3 fd
 manentity_can_overlap_IX_IY:
+	ld b, #0 
+
 	;; Check colision between IX and IY (IX as reference)
 	ld a, manentity_y(iy)
 	sub manentity_y(ix)
@@ -599,7 +619,10 @@ manentity_can_overlap_IX_IY:
 	 sub manentity_y(iy) 
 	ret c	;; No collision											
 
+	;; Collision in Y axis, so check X axis
 	manentity_can_overlap_IX_IY_continue:
+	ld b, #1
+
 	;; Check for possible collision on the X axis after collision in Y (only possible when entity is created first time, IX, and collision with old entity, IY)
 	ld a, manentity_x(iy) 								;; /
 	add manentity_w(iy) 								;; | If IY right point > IX left point : overlap in X axis, so ret,  
@@ -611,8 +634,7 @@ manentity_can_overlap_IX_IY:
 	ld a, manentity_vx(iy) 								;; / If IX vx - IY vx <= 0: IX can't reach IY, else: check manentity_array_vx_bytes
 	sub manentity_vx(ix) 								;; \
 	ret c 	;; No collision
-	scf 	;; Set flag carray to 1
-	ret z 	;; No collision (Carray flag == 1)
+	ret z 	;; Collision (Zero flag == 0 && Carray flag == 0, because exists collision in Y and X axis, so this may cause drawing errors)
 
 	ld de, #manentity_array_vx_bytes
 	ld a, manentity_vx(ix)  							;; /

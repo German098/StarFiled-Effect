@@ -214,12 +214,12 @@ sysrender_draw_entity:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;
 sysrender_draw_XOR_entity:
-	push ix 									;; [2 | 5] Save IX register
-	ld__ixl_b									;; [2 | 2] IXL = B (width)
-	ld__ixh_a 									;; IXH = A (draw mode)
+	push ix 										;; [2 | 5] Save IX register
+	ld__ixl_b										;; [2 | 2] IXL = B (width)
+	ld__ixh_a 										;; IXH = A (draw mode)
 
 	sysrender_XOR_entity_main_loop:
-	 push de									;; [1 | 4] Save DE (address memory to draw)
+	 push de										;; [1 | 4] Save DE (address memory to draw)
 
 	sysrender_XOR_entity_row_loop:
 	 xor a 											;; A = 0
@@ -229,40 +229,40 @@ sysrender_draw_XOR_entity:
 	 ld l, e 										;; \
 
 	sysrender_XOR_entity_row_loop_continue:
-	 ld a, (de) 								;; [1 | 2] A = byte of DE video memory
-	 xor (hl)									;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == HL sprite color, so res = back color
-	 inc hl										;; [1 | 2] Next sprite byte color
-	 ld (de), a 								;; [1 | 2] Update byte color of DE addres memory
-	 inc de 									;; [1 | 2] Next byte of video memory address to draw
+	 ld a, (de) 									;; [1 | 2] A = byte of DE video memory
+	 xor (hl)										;; [1 | 2] A ^ Sprite byte color, if A == back color: result = sprite byte color, else, A == HL sprite color, so res = back color
+	 inc hl											;; [1 | 2] Next sprite byte color
+	 ld (de), a 									;; [1 | 2] Update byte color of DE addres memory
+	 inc de 										;; [1 | 2] Next byte of video memory address to draw
 
- 	djnz sysrender_XOR_entity_row_loop			;; [3/4 | 2] If B != 0, blending operation on the next byte 
- 	 pop de										;; [1 | 3] DE = destination address video memory to draw
- 	 dec c 										;; [1 | 1] 
- 	jr z, sysrender_draw_XOR_entity_end			;; [2 | 3/2]
+ 	djnz sysrender_XOR_entity_row_loop				;; [3/4 | 2] If B != 0, blending operation on the next byte 
+ 	 pop de											;; [1 | 3] DE = destination address video memory to draw
+ 	 dec c 											;; [1 | 1] 
+ 	jr z, sysrender_draw_XOR_entity_end				;; [2 | 3/2]
 
- 	 ld__b_ixl									;; [2 | 2] B = entity width
- 	 ld a, #0x08								;; [2 | 2] We add 0x0800 to destination pointer to get next byte line of current character
- 	 add d 										;; [1 | 1] A = A + D (high byte of destination addres video memory to draw). Low byte is not necessary
+ 	 ld__b_ixl										;; [2 | 2] B = entity width
+ 	 ld a, #0x08									;; [2 | 2] We add 0x0800 to destination pointer to get next byte line of current character
+ 	 add d 											;; [1 | 1] A = A + D (high byte of destination addres video memory to draw). Low byte is not necessary
 
- 	 ld d, a 									;; [1 | 1]
- 	 and #0x38 									;; [2 | 2] / If any bit from 13, 12, 11 (weights) is not 0: we are still inside video memory boundaries, so proceed 
- 	jr nz, sysrender_XOR_entity_main_loop		;; [2 | 3/2] \ with next bytes line
+ 	 ld d, a 										;; [1 | 1]
+ 	 and #0x38 										;; [2 | 2] / If any bit from 13, 12, 11 (weights) is not 0: we are still inside video memory boundaries, so proceed 
+ 	jr nz, sysrender_XOR_entity_main_loop			;; [2 | 3/2] \ with next bytes line
 
  	 ;; Every 8 lines (1 character), we cross the 16K video memory boundaries, 8 * 2048k (0x800), and have to reposition destination pointer. 
  	 ;; That means our nextline is 16K-0x50 bytes back (to c0000) which is the same as advancing 48K(0xc0000)+0x50 = 0xC050 bytes, as memory is 64K 
    	 ;; and our 16bit pointers cycle over it.
- 	 ld a, #0x50 								;; [2 | 2] / Add low byte to E
- 	 add e										;; [1 | 1] \
- 	 ld e, a 									;; [1 | 1]
- 	 ld a, #0xc0								;; [2 | 2] / Add high byte to D and the carry flag
- 	 adc d										;; [1 | 1] \
- 	 ld d, a 									;; [1 | 1]
- 	jp sysrender_XOR_entity_main_loop			;; [3 | 3]
+ 	 ld a, #0x50 									;; [2 | 2] / Add low byte to E
+ 	 add e											;; [1 | 1] \
+ 	 ld e, a 										;; [1 | 1]
+ 	 ld a, #0xc0									;; [2 | 2] / Add high byte to D and the carry flag
+ 	 adc d											;; [1 | 1] \
+ 	 ld d, a 										;; [1 | 1]
+ 	jp sysrender_XOR_entity_main_loop				;; [3 | 3]
 
  	sysrender_draw_XOR_entity_end:
- 	 pop ix 									;; [2 | 5] IX = current entity
+ 	 pop ix 										;; [2 | 5] IX = current entity
 
-	ret											;; [1 | 3]
+	ret												;; [1 | 3]
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
